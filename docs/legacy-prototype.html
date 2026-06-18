@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thara · Planning Control Room</title>
+<style>
+  :root{
+    --charcoal:#1a1a1a; --red:#d32027; --red-dark:#a81820;
+    --bg:#f4f4f5; --panel:#ffffff; --line:#e3e3e6; --muted:#6b6b70;
+    --jour:#1f9d55; --jour-bg:#e6f5ec;
+    --nuit:#2b3a67; --nuit-bg:#e6e9f2;
+    --repos:#9aa0a6; --repos-bg:#f0f0f2;
+    --abs:#d32027; --abs-bg:#fdecec;
+    --warn:#d32027; --warn-bg:#fdecec;
+    --ok:#1f9d55;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Calibri,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--charcoal);font-size:15px}
+  header{background:var(--charcoal);color:#fff;padding:12px 22px;display:flex;align-items:center;gap:14px;border-bottom:4px solid var(--red);flex-wrap:wrap}
+  header .logo{font-weight:700;font-size:20px;letter-spacing:.5px}
+  header .logo span{color:var(--red)}
+  .modesw{margin-left:auto;display:inline-flex;border:1px solid #444;border-radius:7px;overflow:hidden}
+  .modesw button{background:transparent;color:#cfcfd2;border:none;padding:7px 14px;font:inherit;cursor:pointer;font-size:13.5px}
+  .modesw button.on{background:var(--red);color:#fff;font-weight:600}
+  nav{display:flex;background:var(--panel);border-bottom:1px solid var(--line);padding:0 12px;flex-wrap:wrap}
+  nav button{background:none;border:none;padding:13px 16px;font:inherit;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent}
+  nav button.active{color:var(--charcoal);border-bottom-color:var(--red);font-weight:600}
+  nav button:hover{color:var(--charcoal)}
+  main{max-width:1180px;margin:0 auto;padding:20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;margin-bottom:18px}
+  h2{margin:0 0 4px;font-size:18px}
+  h3{margin:18px 0 8px;font-size:15px}
+  .hint{color:var(--muted);font-size:13px;margin:0 0 14px}
+  label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  input,select,textarea{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;width:100%;background:#fff}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:150px}
+  button.btn{background:var(--red);color:#fff;border:none;padding:9px 16px;border-radius:6px;font:inherit;font-weight:600;cursor:pointer}
+  button.btn:hover{background:var(--red-dark)}
+  button.btn.ghost{background:#fff;color:var(--charcoal);border:1px solid var(--line)}
+  button.btn.ghost:hover{border-color:var(--charcoal)}
+  button.btn.dark{background:var(--charcoal)}
+  button.btn.sm{padding:5px 10px;font-size:13px}
+  button.link{background:none;border:none;color:var(--red);cursor:pointer;font:inherit;text-decoration:underline;padding:0}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left}
+  th{background:#fafafa;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11.5px;font-weight:600}
+  .tag.rot{background:#eef;color:#33408a}
+  .tag.fix{background:#fdeede;color:#9a6212}
+  .tag.cross{background:#fdecec;color:var(--red);border:1px dashed var(--red)}
+  .tag.ok{background:var(--jour-bg);color:var(--jour)}
+  .tag.no{background:var(--abs-bg);color:var(--abs)}
+  .empty-state{color:var(--muted);font-size:14px;padding:14px;text-align:center;border:1px dashed var(--line);border-radius:6px}
+  .pgrid td.cell{text-align:center;cursor:pointer;font-weight:700;min-width:48px;user-select:none}
+  .pgrid td.cell.J{background:var(--jour-bg);color:var(--jour)}
+  .pgrid td.cell.N{background:var(--nuit-bg);color:var(--nuit)}
+  .pgrid td.cell.R{background:var(--repos-bg);color:var(--repos)}
+  .pgrid td.cell.ABS{background:var(--abs-bg);color:var(--abs)}
+  .pgrid td.cell.empty{background:#fff;color:#ccc}
+  .pgrid td.namecol{font-weight:600;white-space:nowrap}
+  .pgrid tr.cover td{font-weight:700;font-size:12.5px;text-align:center}
+  .cov-ok{color:var(--jour)}
+  .cov-bad{background:var(--warn-bg);color:var(--warn)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;margin:10px 0;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:14px;height:14px;border-radius:3px;display:inline-block}
+  .toolbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+  .weeknav{display:flex;align-items:center;gap:8px}
+  .weeknav b{min-width:250px;text-align:center;display:inline-block}
+  .diffuse-block{border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:12px}
+  .diffuse-block .top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .diffuse-block pre{background:#fafafa;border:1px solid var(--line);border-radius:6px;padding:10px;font-family:Calibri,sans-serif;font-size:13px;white-space:pre-wrap;margin:10px 0 0}
+  .small{font-size:12.5px;color:var(--muted)}
+  .danger{color:var(--red)}
+  .flex-between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .daychips{display:flex;gap:6px;flex-wrap:wrap}
+  .daychip{padding:5px 9px;border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:12.5px;user-select:none}
+  .daychip.on{background:var(--charcoal);color:#fff;border-color:var(--charcoal)}
+  .daychip.alt{background:#fff;color:var(--red);border:2px dashed var(--red);font-weight:700}
+  .daychip.alt::after{content:" ½"}
+  .daychips.disabled{opacity:.4;pointer-events:none}
+  .notice{background:#fffbe6;border:1px solid #f0e0a0;border-radius:6px;padding:10px 12px;font-size:13px;margin-bottom:12px}
+  .saved{font-size:12px;color:var(--jour);margin-left:8px}
+  .mode-toggle{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .mode-toggle button{background:#fff;border:none;padding:7px 12px;cursor:pointer;font:inherit;font-size:13px}
+  .mode-toggle button.on{background:var(--charcoal);color:#fff}
+  .monthwk{margin-bottom:16px}
+  .monthwk h4{margin:0 0 6px;font-size:13.5px;color:var(--charcoal)}
+  .mini td,.mini th{padding:4px 6px;font-size:12.5px;text-align:center}
+  .mini td.n{text-align:left;font-weight:600;white-space:nowrap}
+  .stripe{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}
+  .stripe .d{flex:1;min-width:60px;border:1px solid var(--line);border-radius:6px;padding:6px;text-align:center}
+  .stripe .d .dl{font-size:11px;color:var(--muted)}
+  .stripe .d .dv{font-weight:700;font-size:16px;margin-top:3px}
+  .stripe .d.J .dv{color:var(--jour)} .stripe .d.N .dv{color:var(--nuit)}
+  .stripe .d.R .dv{color:var(--repos)} .stripe .d.ABS .dv{color:var(--abs)}
+  .badge48{font-size:12px;padding:2px 8px;border-radius:6px;background:#fffbe6;border:1px solid #f0e0a0;color:#8a6d1a}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">THARA<span>·</span>CR</div>
+  <div>Planning Control Room</div>
+  <span class="modesw" id="modesw">
+    <button data-mode="manager" class="on">Responsable</button>
+    <button data-mode="agent">Espace agent</button>
+  </span>
+</header>
+<nav id="nav"></nav>
+<main id="app"></main>
+
+<script>
+/* ===================== CONSTANTES ===================== */
+const CYCLE=['J','N','R'];
+const REF='2026-01-01';                       // ancrage du cycle continu
+const DAYS=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+const DSHORT=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+const HOURS={J:"07h30 – 17h30", N:"17h30 – 07h30 (lendemain)"};
+const LABEL={J:"Jour",N:"Nuit",R:"Repos",ABS:"Absent"};
+
+/* ===================== ÉTAT ===================== */
+let state={ rooms:[], employees:[], absences:{}, schedules:{}, ui:{} };
+let storageOK=true, savedFlag=false;
+
+function uid(p){ return p+"_"+Math.random().toString(36).slice(2,8); }
+
+async function loadState(){
+  try{ const r=await window.storage.get("crm_v2"); if(r&&r.value) state=JSON.parse(r.value); }catch(e){}
+  if(!state.rooms||!state.rooms.length) seed();
+  state.absences=state.absences||{};
+  state.schedules=state.schedules||{};
+  state.ui=state.ui||{};
+  if(!state.ui.mode) state.ui.mode="manager";
+  if(!state.ui.tab) state.ui.tab="plan";
+  if(!state.ui.weekStart) state.ui.weekStart=mondayISOof(todayISO());
+  if(!state.ui.monthAnchor) state.ui.monthAnchor=todayISO();
+  if(!state.ui.currentRoomId && state.rooms[0]) state.ui.currentRoomId=state.rooms[0].id;
+  (state.employees||[]).forEach(normEmp);
+  reassignOffsets();
+}
+function seed(){
+  state.rooms=[{id:uid("room"),name:"Ankorodrano",mode:"quart"}];
+  state.employees=[]; state.absences={}; state.schedules={};
+}
+let saveTimer=null;
+async function saveState(){
+  savedFlag=true; render();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{ try{ await window.storage.set("crm_v2",JSON.stringify(state)); }catch(e){ storageOK=false; } savedFlag=false; },200);
+}
+
+/* ===================== DATES (sûres en fuseau UTC+) ===================== */
+function ymd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0'); }
+function todayISO(){ return ymd(new Date()); }
+function isoUTC(iso){ return Date.parse(iso+"T00:00:00Z"); }
+function addDaysISO(iso,n){ return new Date(isoUTC(iso)+n*864e5).toISOString().slice(0,10); }
+function dowISO(iso){ return (new Date(isoUTC(iso)).getUTCDay()+6)%7; }      // 0=Lundi … 6=Dimanche
+function mondayISOof(iso){ return addDaysISO(iso,-dowISO(iso)); }
+function dayNum(iso){ return Math.round((isoUTC(iso)-isoUTC(REF))/864e5); }
+function isoWeekNum(iso){ const d=new Date(isoUTC(iso)); const dn=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-dn+3); const ft=new Date(Date.UTC(d.getUTCFullYear(),0,4)); const ftd=(ft.getUTCDay()+6)%7; ft.setUTCDate(ft.getUTCDate()-ftd+3); return 1+Math.round((d-ft)/(7*864e5)); }
+function weekParity(iso){ return isoWeekNum(iso)%2; }
+function weekDatesISO(monIso){ const out=[]; for(let i=0;i<7;i++) out.push(addDaysISO(monIso,i)); return out; }
+function fmtShort(iso){ const d=new Date(isoUTC(iso)); return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",timeZone:"UTC"}); }
+function shiftWeek(n){ state.ui.weekStart=addDaysISO(state.ui.weekStart,n*7); render(); }
+function shiftMonth(n){ const d=new Date(isoUTC(state.ui.monthAnchor)); d.setUTCMonth(d.getUTCMonth()+n); state.ui.monthAnchor=d.toISOString().slice(0,10); render(); }
+function monthWeeks(anchorIso){ const ad=new Date(isoUTC(anchorIso)); const y=ad.getUTCFullYear(),m=ad.getUTCMonth(); const firstISO=`${y}-${String(m+1).padStart(2,'0')}-01`; const lastISO=new Date(Date.UTC(y,m+1,0)).toISOString().slice(0,10); let cur=mondayISOof(firstISO); const out=[]; while(isoUTC(cur)<=isoUTC(lastISO)&&out.length<6){ out.push(cur); cur=addDaysISO(cur,7); } return {weeks:out,monthName:ad.toLocaleDateString("fr-FR",{month:"long",year:"numeric",timeZone:"UTC"})}; }
+
+/* ===================== EMPLOYÉS ===================== */
+function defaultSpec(){ const s=Array(7).fill('off'); for(let i=0;i<6;i++)s[i]='on'; return s; }
+function normEmp(e){
+  if(e.type==='fixedDay'){ if(!e.daySpec){ const s=Array(7).fill('off'); (e.fixedDays&&e.fixedDays.length?e.fixedDays:[0,1,2,3,4,5]).forEach(d=>s[d]='on'); e.daySpec=s; } if(e.altParity==null)e.altParity=0; }
+  return e;
+}
+// assigne les offsets de binôme aux agents rotation (par salle, ordre de création) : 0,0,1,1,2,2,...
+function reassignOffsets(){
+  state.rooms.forEach(r=>{
+    const rots=state.employees.filter(e=>e.roomId===r.id && e.type==='rotation');
+    rots.forEach((e,i)=>{ e.offset=Math.floor(i/2)%3; e.binome=Math.floor(i/2)%3+1; });
+  });
+}
+function room(id){ return state.rooms.find(r=>r.id===id); }
+function empsOfRoom(rid){ return state.employees.filter(e=>e.roomId===rid); }
+function emp(id){ return state.employees.find(e=>e.id===id); }
+function workingDaysFor(e,monIso){ const spec=e.daySpec||defaultSpec(); const par=weekParity(monIso); const out=[]; for(let d=0;d<7;d++){ if(spec[d]==='on')out.push(d); else if(spec[d]==='alt'&&par===(e.altParity||0))out.push(d); } return out; }
+
+/* ===================== ABSENCES ===================== */
+function isAbsent(empId,iso){ return (state.absences[empId]||[]).some(a=> a.status==='enregistree' && iso>=a.start && iso<=a.end); }
+function addAbsence(empId,rec){ if(!state.absences[empId]) state.absences[empId]=[]; state.absences[empId].push(rec); }
+function hoursUntil(startIso){ return (Date.parse(startIso+"T00:00:00") - Date.now())/3600000; }
+
+/* ===================== MOTEUR J-N-R ===================== */
+// statut auto (avant absence) d'un employé pour une date donnée
+function autoStatus(e,iso,monIso){
+  if(e.type==='rotation'){ const n=((dayNum(iso)+(e.offset||0))%3+3)%3; return CYCLE[n]; }
+  // jour fixe
+  const wd=workingDaysFor(e,monIso); const dow=dowISO(iso);
+  return wd.includes(dow)?'J':'R';
+}
+// planning d'une semaine pour une salle : applique overrides stockés + absences
+function weekSchedule(rid,monIso){
+  const dates=weekDatesISO(monIso);
+  const store=(state.schedules[rid]&&state.schedules[rid][monIso])||{};
+  const roster=rosterFor(rid,monIso);
+  const grid={};
+  roster.forEach(e=>{
+    grid[e.id]=dates.map((iso,d)=>{
+      if(isAbsent(e.id,iso)) return 'ABS';
+      if(store[e.id]&&store[e.id][d]!=null&&store[e.id][d]!=='') return store[e.id][d];
+      if(e.cross) return store[e.id]&&store[e.id][d]||''; // les prêtés n'ont pas de cycle propre ici
+      return autoStatus(e,iso,monIso);
+    });
+  });
+  return {dates,roster,grid};
+}
+// roster = agents de la salle + agents prêtés (présents dans le store de la semaine)
+function rosterFor(rid,monIso){
+  const base=empsOfRoom(rid).map(e=>({...e,cross:false}));
+  const store=(state.schedules[rid]&&state.schedules[rid][monIso])||{};
+  const baseIds=new Set(base.map(e=>e.id));
+  const cross=[];
+  Object.keys(store).forEach(id=>{ if(!baseIds.has(id)){ const e=emp(id); if(e) cross.push({...e,cross:true}); } });
+  // tri : jour fixe d'abord, puis rotation par binôme, puis prêtés
+  base.sort((a,b)=>{ if(a.type!==b.type) return a.type==='fixedDay'?-1:1; return (a.binome||0)-(b.binome||0); });
+  return [...base,...cross];
+}
+function setCell(rid,monIso,empId,d,val){
+  if(!state.schedules[rid]) state.schedules[rid]={};
+  if(!state.schedules[rid][monIso]) state.schedules[rid][monIso]={};
+  if(!state.schedules[rid][monIso][empId]) state.schedules[rid][monIso][empId]=Array(7).fill('');
+  state.schedules[rid][monIso][empId][d]=val;
+}
+function coverage(grid,roster){
+  const J=[],N=[];
+  for(let d=0;d<7;d++){ let j=0,n=0; roster.forEach(e=>{ const s=grid[e.id][d]; if(s==='J')j++; if(s==='N')n++; }); J.push(j); N.push(n); }
+  return {J,N};
+}
+
+/* ===================== RENDU ===================== */
+const app=document.getElementById("app");
+const navEl=document.getElementById("nav");
+document.querySelectorAll("#modesw button").forEach(b=> b.onclick=()=>{ state.ui.mode=b.dataset.mode; state.ui.tab = b.dataset.mode==='agent'?'aplan':'plan'; render(); });
+
+const TABS_MANAGER=[["plan","Planning"],["month","Mois"],["staff","Employés"],["requests","Absences & demandes"],["diffuse","Diffusion"],["rooms","Salles"]];
+const TABS_AGENT=[["aplan","Ma semaine"],["amonth","Mon mois"],["arequest","Mes demandes"]];
+
+function render(){
+  document.querySelectorAll("#modesw button").forEach(b=> b.classList.toggle("on", b.dataset.mode===state.ui.mode));
+  const tabs = state.ui.mode==='agent'?TABS_AGENT:TABS_MANAGER;
+  if(!tabs.find(t=>t[0]===state.ui.tab)) state.ui.tab=tabs[0][0];
+  navEl.innerHTML=tabs.map(([k,l])=>`<button data-tab="${k}" class="${state.ui.tab===k?'active':''}">${l}</button>`).join("");
+  navEl.querySelectorAll("button").forEach(b=> b.onclick=()=>{ state.ui.tab=b.dataset.tab; render(); });
+
+  const t=state.ui.tab;
+  if(t==="rooms") app.innerHTML=viewRooms();
+  else if(t==="staff") app.innerHTML=viewStaff();
+  else if(t==="plan") app.innerHTML=viewPlan();
+  else if(t==="month") app.innerHTML=viewMonth();
+  else if(t==="requests") app.innerHTML=viewRequests();
+  else if(t==="diffuse") app.innerHTML=viewDiffuse();
+  else if(t==="aplan") app.innerHTML=viewAgentWeek();
+  else if(t==="amonth") app.innerHTML=viewAgentMonth();
+  else if(t==="arequest") app.innerHTML=viewAgentRequest();
+  bind();
+}
+
+/* ---------- SALLES ---------- */
+function viewRooms(){
+  const rows=state.rooms.map(r=>`<tr>
+    <td><b>${esc(r.name)}</b></td>
+    <td>Quart 24/7 – J · N · R</td>
+    <td>${empsOfRoom(r.id).length} employés</td>
+    <td style="text-align:right"><button class="link" data-act="renameRoom" data-id="${r.id}">Renommer</button> · <button class="link danger" data-act="delRoom" data-id="${r.id}">Supprimer</button></td>
+  </tr>`).join("");
+  return `<div class="card"><h2>Salles de contrôle</h2>
+    <p class="hint">Format verrouillé : <b>service de quart 24/7</b>, rotation stricte Jour · Nuit · Repos pour les agents tournants (3 binômes), plus l'agent jour fixe (Sylvie). 2 Jour + 2 Nuit assurés en permanence.</p>
+    <table><thead><tr><th>Salle</th><th>Mode</th><th>Effectif</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    <h3>Ajouter une salle</h3>
+    <div class="row" style="align-items:flex-end"><div><label>Nom</label><input id="newRoom" placeholder="Ex : Talatamaty"></div><div style="flex:0"><button class="btn" data-act="addRoom">+ Ajouter</button></div></div>
+  </div>`;
+}
+
+/* ---------- EMPLOYÉS ---------- */
+function viewStaff(){
+  const roomOpts=state.rooms.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join("");
+  const rows=state.employees.map(e=>{
+    const r=room(e.roomId);
+    const tg=e.type==='fixedDay'?`<span class="tag fix">Jour fixe</span>`:`<span class="tag rot">Rotation · binôme ${e.binome||'?'}</span>`;
+    let days="–";
+    if(e.type==='fixedDay'){ const sp=e.daySpec||[]; const parts=sp.map((s,d)=> s==='on'?DSHORT[d]:s==='alt'?DSHORT[d]+'½':null).filter(Boolean); days=parts.join(", ")+(sp.includes('alt')?` <span class="small">(½=${e.altParity?'sem. impaires':'sem. paires'})</span>`:""); }
+    return `<tr><td><b>${esc(e.name)}</b></td><td>${esc(e.email||'')||'<span class="small danger">e-mail manquant</span>'}</td><td>${r?esc(r.name):'?'}</td><td>${tg}</td><td>${days}</td>
+      <td style="text-align:right"><button class="link" data-act="editEmp" data-id="${e.id}">Modifier</button> · <button class="link danger" data-act="delEmp" data-id="${e.id}">Supprimer</button></td></tr>`;
+  }).join("");
+  return `<div class="card"><h2>Employés</h2>
+    <p class="hint"><b>Rotation</b> = agent tournant J/N/R (groupé en binômes 1, 2, 3 dans l'ordre d'ajout). <b>Jour fixe</b> = agent de journée (ex. Sylvie, lun–sam, samedi 1 sem/2). L'e-mail sert à la diffusion et à l'espace agent.</p>
+    <table><thead><tr><th>Nom</th><th>E-mail</th><th>Salle</th><th>Type</th><th>Jours (si fixe)</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty-state">Aucun employé</td></tr>'}</tbody></table>
+    <h3 id="empTitle">Ajouter un employé</h3>
+    <input type="hidden" id="empEditId" value="">
+    <div class="row">
+      <div><label>Nom complet</label><input id="empName" placeholder="Prénom Nom"></div>
+      <div><label>E-mail</label><input id="empEmail" type="email" placeholder="prenom@thara-services.mg"></div>
+      <div><label>Salle</label><select id="empRoom">${roomOpts}</select></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div style="flex:0 0 200px"><label>Type</label><select id="empType"><option value="rotation">Rotation Jour / Nuit</option><option value="fixedDay">Jour fixe</option></select></div>
+      <div style="flex:2"><label>Jours <span class="small">(s'applique aux agents « Jour fixe » uniquement)</span></label>
+        <div class="daychips" id="empDays">${DAYS.map((d,i)=>`<span class="daychip ${i<6?'on':''}" data-d="${i}">${DSHORT[i]}</span>`).join("")}</div>
+        <div class="small" id="empDaysNote" style="margin-top:5px">Non applicable : un agent en rotation suit le cycle J-N-R automatique.</div></div>
+      <div style="flex:0 0 190px"><label>« 1 sem/2 » les…</label><select id="empAlt"><option value="0">Semaines paires</option><option value="1">Semaines impaires</option></select></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn" data-act="saveEmp">Enregistrer</button> <button class="btn ghost" id="cancelEmp" data-act="cancelEmp" style="display:none">Annuler</button></div>
+  </div>`;
+}
+
+/* ---------- PLANNING (responsable) ---------- */
+function viewPlan(){
+  if(!state.rooms.length) return `<div class="card"><div class="empty-state">Crée une salle.</div></div>`;
+  const rid=state.ui.currentRoomId||state.rooms[0].id; state.ui.currentRoomId=rid;
+  const monIso=state.ui.weekStart;
+  const {dates,roster,grid}=weekSchedule(rid,monIso);
+  const cov=coverage(grid,roster);
+  const roomOpts=state.rooms.map(r=>`<option value="${r.id}" ${r.id===rid?'selected':''}>${esc(r.name)}</option>`).join("");
+
+  let body="";
+  if(!roster.length){ body=`<div class="empty-state">Aucun agent dans cette salle. Ajoute-les dans Employés.</div>`; }
+  else{
+    const head=dates.map((iso,i)=>`<th>${DSHORT[i]}<br><span class="small">${fmtShort(iso)}</span></th>`).join("");
+    const rows=roster.map(e=>{
+      const cells=grid[e.id].map((s,d)=>{
+        const cls=s==='J'?'J':s==='N'?'N':s==='R'?'R':s==='ABS'?'ABS':'empty';
+        const lock = s==='ABS' ? ' title="Absence – modifier dans Absences"' : ' title="Cliquer pour changer"';
+        return `<td class="cell ${cls}" data-act="cycle" data-emp="${e.id}" data-d="${d}"${lock}>${s||'·'}</td>`;
+      }).join("");
+      const tg=e.cross?`<span class="tag cross">prêté</span>`:(e.type==='fixedDay'?`<span class="tag fix">fixe</span>`:`<span class="tag rot">B${e.binome||''}</span>`);
+      return `<tr><td class="namecol">${esc(e.name)} ${tg}</td>${cells}<td>${e.cross?`<button class="link danger" data-act="unassign" data-emp="${e.id}">retirer</button>`:''}</td></tr>`;
+    }).join("");
+    const jrow=cov.J.map(j=>`<td class="${j>=2?'cov-ok':'cov-bad'}">${j}${j<2?' ⚠':''}</td>`).join("");
+    const nrow=cov.N.map(n=>`<td class="${n>=2?'cov-ok':'cov-bad'}">${n}${n<2?' ⚠':''}</td>`).join("");
+    body=`<table class="pgrid"><thead><tr><th>Agent</th>${head}<th></th></tr></thead><tbody>${rows}
+      <tr class="cover"><td style="text-align:left">Couverture Jour</td>${jrow}<td></td></tr>
+      <tr class="cover"><td style="text-align:left">Couverture Nuit</td>${nrow}<td></td></tr></tbody></table>`;
+  }
+  // renforts dispo : agents d'autres salles non déjà prêtés
+  const store=(state.schedules[rid]&&state.schedules[rid][monIso])||{};
+  const others=state.employees.filter(e=>e.roomId!==rid && !store[e.id]);
+  const crossOpts=others.length?others.map(e=>{const r=room(e.roomId);return `<option value="${e.id}">${esc(e.name)} (${r?esc(r.name):'?'})</option>`;}).join(""):`<option value="">Aucun</option>`;
+
+  return `<div class="card">
+    <div class="flex-between"><h2>Planning de la semaine ${savedFlag?'<span class="saved">✓ enregistré</span>':''}</h2></div>
+    <div class="toolbar">
+      <div><label>Salle</label><select id="planRoom">${roomOpts}</select></div>
+      <div><label>Semaine</label><div class="weeknav">
+        <button class="btn ghost sm" data-act="prevWeek">‹</button>
+        <b>${fmtShort(dates[0])} – ${fmtShort(dates[6])} · S${isoWeekNum(monIso)} (${weekParity(monIso)?'impaire':'paire'})</b>
+        <button class="btn ghost sm" data-act="nextWeek">›</button>
+        <button class="btn ghost sm" data-act="thisWeek">Cette semaine</button>
+      </div></div>
+      <div style="align-self:flex-end"><button class="btn ghost" data-act="resetWeek">↺ Réinitialiser (proposition auto)</button></div>
+    </div>
+    <div class="notice">Le planning J-N-R est <b>proposé automatiquement</b> chaque semaine. Les absences validées apparaissent en rouge et creusent la couverture ⚠ → comble alors le trou avec un renfort ci-dessous. Clique une cellule pour ajuster (J→N→R→vide).</div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--jour-bg);border:1px solid var(--jour)"></i> J Jour</span>
+      <span><i class="sw" style="background:var(--nuit-bg);border:1px solid var(--nuit)"></i> N Nuit</span>
+      <span><i class="sw" style="background:var(--repos-bg);border:1px solid var(--repos)"></i> R Repos</span>
+      <span><i class="sw" style="background:var(--abs-bg);border:1px solid var(--abs)"></i> Absent</span>
+    </div>
+    ${body}
+    <h3>Affecter un renfort (absence)</h3>
+    <div class="row" style="align-items:flex-end">
+      <div style="flex:2"><label>Agent d'une autre salle</label><select id="crossSel">${crossOpts}</select></div>
+      <div style="flex:0"><button class="btn dark" data-act="assignCross" ${others.length?'':'disabled'}>+ Affecter cette semaine</button></div>
+    </div>
+    <p class="small">Le renfort apparaît « prêté » pour cette semaine ; tu cliques ses cellules pour le positionner (Jour/Nuit). Fonctionne dans les deux sens entre salles.</p>
+  </div>`;
+}
+
+/* ---------- MOIS ---------- */
+function viewMonth(){
+  if(!state.rooms.length) return `<div class="card"><div class="empty-state">Crée une salle.</div></div>`;
+  const rid=state.ui.currentRoomId||state.rooms[0].id;
+  const roomOpts=state.rooms.map(r=>`<option value="${r.id}" ${r.id===rid?'selected':''}>${esc(r.name)}</option>`).join("");
+  const {weeks,monthName}=monthWeeks(state.ui.monthAnchor);
+  let html=weeks.map(monIso=>{
+    const {dates,roster,grid}=weekSchedule(rid,monIso);
+    const cov=coverage(grid,roster);
+    const head=dates.map((iso,i)=>`<th>${DSHORT[i]} ${fmtShort(iso).split(' ')[0]}</th>`).join("");
+    const rows=roster.map(e=>{
+      const cells=grid[e.id].map(s=>{const cls=s==='J'?'J':s==='N'?'N':s==='R'?'R':s==='ABS'?'ABS':'empty';return `<td class="cell ${cls}">${s||'·'}</td>`;}).join("");
+      return `<tr><td class="n">${esc(e.name)}</td>${cells}</tr>`;
+    }).join("");
+    const jrow=cov.J.map(j=>`<td class="${j>=2?'cov-ok':'cov-bad'}">${j}</td>`).join("");
+    const nrow=cov.N.map(n=>`<td class="${n>=2?'cov-ok':'cov-bad'}">${n}</td>`).join("");
+    return `<div class="monthwk"><h4>Semaine du ${fmtShort(dates[0])} (S${isoWeekNum(monIso)})</h4>
+      <table class="pgrid mini"><thead><tr><th>Agent</th>${head}</tr></thead><tbody>${rows||''}
+      <tr class="cover"><td class="n">Jour</td>${jrow}</tr><tr class="cover"><td class="n">Nuit</td>${nrow}</tr></tbody></table></div>`;
+  }).join("");
+  return `<div class="card">
+    <div class="toolbar">
+      <div><label>Salle</label><select id="monthRoom">${roomOpts}</select></div>
+      <div><label>Mois</label><div class="weeknav">
+        <button class="btn ghost sm" data-act="prevMonth">‹</button><b style="text-transform:capitalize;min-width:160px">${monthName}</b><button class="btn ghost sm" data-act="nextMonth">›</button>
+      </div></div>
+    </div>
+    <p class="hint">Vue mensuelle, proposée automatiquement semaine par semaine. Couverture Jour/Nuit en bas de chaque semaine.</p>
+    ${html}
+  </div>`;
+}
+
+/* ---------- ABSENCES & DEMANDES ---------- */
+function viewRequests(){
+  const empOpts=state.employees.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join("");
+  // liste à plat
+  let all=[];
+  Object.keys(state.absences).forEach(eid=> (state.absences[eid]||[]).forEach(a=> all.push({eid,...a})));
+  all.sort((x,y)=> (y.createdAt||'').localeCompare(x.createdAt||''));
+  const rows=all.map(a=>{
+    const e=emp(a.eid);
+    const st=a.status==='enregistree'?`<span class="tag ok">Enregistrée</span>`:`<span class="tag no">Refusée (&lt;48h)</span>`;
+    const typ=a.type==='permission'?'Permission':'Absence';
+    return `<tr><td><b>${e?esc(e.name):'?'}</b></td><td>${typ}</td><td>${fmtShort(a.start)}${a.end&&a.end!==a.start?' – '+fmtShort(a.end):''}</td><td>${esc(a.reason||'')}</td><td>${st}</td>
+      <td style="text-align:right">${a.status==='enregistree'?`<button class="link danger" data-act="delAbs" data-eid="${a.eid}" data-id="${a.id}">Annuler</button>`:''}</td></tr>`;
+  }).join("");
+  return `<div class="card"><h2>Absences &amp; demandes</h2>
+    <p class="hint">Le responsable peut déclarer une <b>absence</b> directement (maladie, urgence – sans délai). Une <b>demande de permission</b> (par l'agent ou ici) n'est <b>enregistrée que si elle est faite au moins 48 h à l'avance</b> ; sinon elle est refusée et n'impacte pas le planning.</p>
+
+    <h3>Déclarer une absence (responsable – immédiat)</h3>
+    <div class="row" style="align-items:flex-end">
+      <div><label>Agent</label><select id="absEmp">${empOpts}</select></div>
+      <div><label>Du</label><input type="date" id="absStart"></div>
+      <div><label>Au</label><input type="date" id="absEnd"></div>
+      <div style="flex:2"><label>Motif</label><input id="absReason" placeholder="Maladie, urgence…"></div>
+      <div style="flex:0"><button class="btn" data-act="addAbs">Déclarer</button></div>
+    </div>
+
+    <h3 style="margin-top:22px">Saisir une demande de permission (règle des 48 h)</h3>
+    <div class="row" style="align-items:flex-end">
+      <div><label>Agent</label><select id="permEmp">${empOpts}</select></div>
+      <div><label>Du</label><input type="date" id="permStart"></div>
+      <div><label>Au</label><input type="date" id="permEnd"></div>
+      <div style="flex:2"><label>Motif</label><input id="permReason" placeholder="Raison personnelle…"></div>
+      <div style="flex:0"><button class="btn dark" data-act="addPerm">Soumettre</button></div>
+    </div>
+    <p class="small">Le système calcule l'écart avec maintenant : &lt; 48 h → refusée et non enregistrée.</p>
+
+    <h3 style="margin-top:22px">Historique</h3>
+    <table><thead><tr><th>Agent</th><th>Type</th><th>Dates</th><th>Motif</th><th>Statut</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty-state">Aucune absence ni demande</td></tr>'}</tbody></table>
+  </div>`;
+}
+
+/* ---------- DIFFUSION ---------- */
+function viewDiffuse(){
+  if(!state.rooms.length) return `<div class="card"><div class="empty-state">Crée une salle.</div></div>`;
+  const rid=state.ui.currentRoomId||state.rooms[0].id;
+  const monIso=state.ui.weekStart;
+  const roomOpts=state.rooms.map(r=>`<option value="${r.id}" ${r.id===rid?'selected':''}>${esc(r.name)}</option>`).join("");
+  const {dates,roster,grid}=weekSchedule(rid,monIso);
+  const r=room(rid);
+  let blocks=roster.map(e=>{
+    const body=emailBody(e,r,dates,grid[e.id]);
+    const subject=`Planning Control Room ${r.name} – semaine du ${fmtShort(dates[0])}`;
+    const mailto=`mailto:${encodeURIComponent(e.email||'')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const noMail=!e.email;
+    return `<div class="diffuse-block"><div class="top">
+      <div><b>${esc(e.name)}</b> ${noMail?'<span class="small danger">e-mail manquant</span>':`<span class="small">${esc(e.email)}</span>`}</div>
+      <div><button class="btn sm ${noMail?'ghost':''}" data-act="mailto" data-href="${encodeURIComponent(mailto)}" ${noMail?'disabled':''}>✉ Ouvrir l'e-mail</button>
+      <button class="btn ghost sm" data-act="copyOne" data-body="${encodeURIComponent(body)}">Copier</button></div></div>
+      <pre>${esc(body)}</pre></div>`;
+  }).join("");
+  if(!roster.length) blocks=`<div class="empty-state">Aucun agent planifié.</div>`;
+  return `<div class="card"><h2>Diffusion du planning</h2>
+    <p class="hint">Planning personnalisé et mis en forme par agent. « Ouvrir l'e-mail » lance ta messagerie (Spark / Superhuman) avec le message pré-rempli.</p>
+    <div class="toolbar">
+      <div><label>Salle</label><select id="diffRoom">${roomOpts}</select></div>
+      <div><label>Semaine</label><div class="weeknav"><button class="btn ghost sm" data-act="prevWeek">‹</button><b>${fmtShort(dates[0])} – ${fmtShort(dates[6])}</b><button class="btn ghost sm" data-act="nextWeek">›</button></div></div>
+      <div style="align-self:flex-end"><button class="btn" data-act="copyAll">Copier tout</button></div>
+    </div>
+    ${blocks}
+  </div>`;
+}
+function emailBody(e,r,dates,arr){
+  const lines=arr.map((s,d)=>{
+    const txt = s==='J'?`Jour   ${HOURS.J}` : s==='N'?`Nuit   ${HOURS.N}` : s==='ABS'?`Absence`:'Repos';
+    return `  ${DAYS[d].padEnd(9)} ${fmtShort(dates[d]).padEnd(9)}  ${txt}`;
+  }).join("\n");
+  const nb=arr.filter(s=>s==='J'||s==='N').length;
+  return `Bonjour ${e.name.split(' ')[0]},
+
+Voici votre planning – Control Room ${r.name}
+Semaine du ${fmtShort(dates[0])} au ${fmtShort(dates[6])} (${nb} vacations)
+─────────────────────────────────────────
+${lines}
+─────────────────────────────────────────
+Jour = 07h30–17h30   ·   Nuit = 17h30–07h30
+
+Toute demande de permission doit être soumise au moins 48 h à l'avance.
+Merci de confirmer la bonne réception.
+
+Cordialement,
+Thara Services Madagascar
+(+261) 32 72 336 43 – contact@thara-services.mg`;
+}
+
+/* ---------- ESPACE AGENT ---------- */
+function currentAgent(){
+  if(state.ui.agentId && emp(state.ui.agentId)) return emp(state.ui.agentId);
+  return null;
+}
+function agentPicker(){
+  const opts=state.employees.map(e=>`<option value="${e.id}" ${state.ui.agentId===e.id?'selected':''}>${esc(e.name)}</option>`).join("");
+  return `<div class="row" style="max-width:420px;margin-bottom:14px"><div><label>Je suis</label><select id="agentSel"><option value="">– choisir mon nom –</option>${opts}</select></div></div>`;
+}
+function viewAgentWeek(){
+  const e=currentAgent();
+  const picker=agentPicker();
+  if(!e) return `<div class="card"><h2>Espace agent</h2><p class="hint">Sélectionne ton nom pour voir ton planning de la semaine.</p>${picker}</div>`;
+  const r=room(e.roomId); const monIso=state.ui.weekStart;
+  const {dates,grid,roster}=weekSchedule(e.roomId,monIso);
+  const mine=grid[e.id]||Array(7).fill('');
+  const cov=coverage(grid,roster);
+  const strip=dates.map((iso,d)=>{const s=mine[d]||'R';const cls=s;return `<div class="d ${cls}"><div class="dl">${DSHORT[d]} ${fmtShort(iso).split(' ')[0]}</div><div class="dv">${s}</div><div class="dl">${s==='J'?'07h30-17h30':s==='N'?'17h30-07h30':s==='ABS'?'absence':'repos'}</div></div>`;}).join("");
+  return `<div class="card"><h2>Ma semaine – ${esc(e.name)}</h2>${picker}
+    <div class="weeknav" style="margin-bottom:10px"><button class="btn ghost sm" data-act="prevWeek">‹</button><b>${fmtShort(dates[0])} – ${fmtShort(dates[6])} · ${r?esc(r.name):''}</b><button class="btn ghost sm" data-act="nextWeek">›</button><button class="btn ghost sm" data-act="thisWeek">Cette semaine</button></div>
+    <div class="stripe">${strip}</div>
+    <p class="small">Vacations cette semaine : <b>${mine.filter(s=>s==='J'||s==='N').length}</b>. Une question sur ton planning ? Vois avec le responsable.</p>
+  </div>`;
+}
+function viewAgentMonth(){
+  const e=currentAgent(); const picker=agentPicker();
+  if(!e) return `<div class="card"><h2>Mon mois</h2>${picker}</div>`;
+  const {weeks,monthName}=monthWeeks(state.ui.monthAnchor);
+  const html=weeks.map(monIso=>{
+    const {dates,grid}=weekSchedule(e.roomId,monIso); const mine=grid[e.id]||Array(7).fill('');
+    const cells=mine.map((s,d)=>{const cls=s==='J'?'J':s==='N'?'N':s==='ABS'?'ABS':'R';return `<td class="cell ${cls}">${s||'R'}</td>`;}).join("");
+    const head=dates.map((iso,i)=>`<th>${DSHORT[i]} ${fmtShort(iso).split(' ')[0]}</th>`).join("");
+    return `<div class="monthwk"><h4>Semaine du ${fmtShort(dates[0])}</h4><table class="pgrid mini"><thead><tr>${head}</tr></thead><tbody><tr>${cells}</tr></tbody></table></div>`;
+  }).join("");
+  return `<div class="card"><h2>Mon mois – ${esc(e.name)}</h2>${picker}
+    <div class="weeknav" style="margin-bottom:10px"><button class="btn ghost sm" data-act="prevMonth">‹</button><b style="text-transform:capitalize">${monthName}</b><button class="btn ghost sm" data-act="nextMonth">›</button></div>
+    ${html}</div>`;
+}
+function viewAgentRequest(){
+  const e=currentAgent(); const picker=agentPicker();
+  if(!e) return `<div class="card"><h2>Mes demandes</h2><p class="hint">Sélectionne ton nom pour faire une demande de permission.</p>${picker}</div>`;
+  const mine=(state.absences[e.id]||[]).slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const rows=mine.map(a=>{
+    const st=a.status==='enregistree'?`<span class="tag ok">Enregistrée</span>`:`<span class="tag no">Refusée (&lt;48h)</span>`;
+    return `<tr><td>${a.type==='permission'?'Permission':'Absence'}</td><td>${fmtShort(a.start)}${a.end&&a.end!==a.start?' – '+fmtShort(a.end):''}</td><td>${esc(a.reason||'')}</td><td>${st}</td></tr>`;
+  }).join("");
+  return `<div class="card"><h2>Mes demandes – ${esc(e.name)}</h2>${picker}
+    <div class="notice">Une demande de permission doit être faite <b>au moins 48 h avant</b> la date concernée. En dessous de ce délai, elle est <b>refusée</b> et n'est pas enregistrée.</div>
+    <div class="row" style="align-items:flex-end">
+      <div><label>Du</label><input type="date" id="myStart"></div>
+      <div><label>Au</label><input type="date" id="myEnd"></div>
+      <div style="flex:2"><label>Motif</label><input id="myReason" placeholder="Raison de la permission"></div>
+      <div style="flex:0"><button class="btn" data-act="myPerm">Soumettre la demande</button></div>
+    </div>
+    <h3>Mon historique</h3>
+    <table><thead><tr><th>Type</th><th>Dates</th><th>Motif</th><th>Statut</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty-state">Aucune demande</td></tr>'}</tbody></table>
+  </div>`;
+}
+
+/* ===================== ACTIONS ===================== */
+function bind(){
+  app.querySelectorAll("[data-act]").forEach(el=> el.addEventListener("click",ev=>handle(el.dataset.act,el,ev)));
+  const planRoom=document.getElementById("planRoom"); if(planRoom) planRoom.onchange=e=>{state.ui.currentRoomId=e.target.value;render();};
+  const monthRoom=document.getElementById("monthRoom"); if(monthRoom) monthRoom.onchange=e=>{state.ui.currentRoomId=e.target.value;render();};
+  const diffRoom=document.getElementById("diffRoom"); if(diffRoom) diffRoom.onchange=e=>{state.ui.currentRoomId=e.target.value;render();};
+  const agentSel=document.getElementById("agentSel"); if(agentSel) agentSel.onchange=e=>{state.ui.agentId=e.target.value;render();};
+  app.querySelectorAll("#empDays .daychip").forEach(c=> c.onclick=()=>{ if(c.classList.contains('alt'))c.classList.remove('alt'); else if(c.classList.contains('on')){c.classList.remove('on');c.classList.add('alt');} else c.classList.add('on'); });
+  const et=document.getElementById("empType"); if(et){ et.onchange=updateEmpFormState; updateEmpFormState(); }
+}
+function updateEmpFormState(){
+  const t=document.getElementById("empType"); if(!t) return;
+  const fixed=t.value==='fixedDay';
+  const days=document.getElementById("empDays"); if(days) days.classList.toggle("disabled",!fixed);
+  const alt=document.getElementById("empAlt"); if(alt) alt.disabled=!fixed;
+  const note=document.getElementById("empDaysNote"); if(note) note.style.display=fixed?'none':'block';
+}
+function handle(act,el,ev){
+  switch(act){
+    case "addRoom":{ const n=val("newRoom").trim(); if(!n)return; state.rooms.push({id:uid("room"),name:n,mode:"quart"}); saveState(); break; }
+    case "renameRoom":{ const r=room(el.dataset.id); const n=prompt("Nouveau nom :",r.name); if(n&&n.trim()){r.name=n.trim();saveState();} break; }
+    case "delRoom":{ if(!confirm("Supprimer cette salle ?"))return; const id=el.dataset.id; state.rooms=state.rooms.filter(r=>r.id!==id); delete state.schedules[id]; if(state.ui.currentRoomId===id)state.ui.currentRoomId=state.rooms[0]?.id||null; saveState(); break; }
+
+    case "saveEmp":{
+      const name=val("empName").trim(); if(!name){alert("Nom requis.");return;}
+      const email=val("empEmail").trim(), roomId=val("empRoom"), type=val("empType");
+      const daySpec=Array(7).fill('off'); app.querySelectorAll("#empDays .daychip").forEach(c=>{const d=+c.dataset.d; daySpec[d]=c.classList.contains('alt')?'alt':c.classList.contains('on')?'on':'off';});
+      const altParity=+val("empAlt")||0; const editId=val("empEditId");
+      if(editId){ const e=emp(editId); Object.assign(e,{name,email,roomId,type,daySpec,altParity}); }
+      else state.employees.push({id:uid("emp"),name,email,roomId,type,daySpec,altParity});
+      reassignOffsets(); saveState(); break;
+    }
+    case "editEmp":{ state.ui.tab="staff"; render(); const e=emp(el.dataset.id); setVal("empEditId",e.id);setVal("empName",e.name);setVal("empEmail",e.email||"");setVal("empRoom",e.roomId);setVal("empType",e.type);
+      app.querySelectorAll("#empDays .daychip").forEach(c=>{c.classList.remove('on','alt');const st=(e.daySpec||[])[+c.dataset.d];if(st==='on')c.classList.add('on');else if(st==='alt')c.classList.add('alt');});
+      setVal("empAlt",e.altParity||0); updateEmpFormState(); document.getElementById("empTitle").textContent="Modifier l'employé"; document.getElementById("cancelEmp").style.display="inline-block"; window.scrollTo(0,document.body.scrollHeight); return; }
+    case "cancelEmp": render(); break;
+    case "delEmp":{ if(!confirm("Supprimer cet employé ?"))return; const id=el.dataset.id; state.employees=state.employees.filter(e=>e.id!==id); delete state.absences[id]; Object.values(state.schedules).forEach(w=>Object.values(w).forEach(s=>delete s[id])); reassignOffsets(); saveState(); break; }
+
+    case "prevWeek": shiftWeek(-1); return;
+    case "nextWeek": shiftWeek(1); return;
+    case "thisWeek": state.ui.weekStart=mondayISOof(todayISO()); render(); return;
+    case "prevMonth": shiftMonth(-1); return;
+    case "nextMonth": shiftMonth(1); return;
+
+    case "cycle":{
+      const rid=state.ui.currentRoomId, monIso=state.ui.weekStart;
+      const emp_=el.dataset.emp, d=+el.dataset.d;
+      const iso=weekDatesISO(monIso)[d];
+      if(isAbsent(emp_,iso)){ alert("Cellule en absence – gère-la dans « Absences & demandes »."); return; }
+      const {grid}=weekSchedule(rid,monIso); const cur=grid[emp_][d]||'';
+      const order=['','J','N','R']; const next=order[(order.indexOf(cur)+1)%order.length];
+      setCell(rid,monIso,emp_,d,next); saveState(); break;
+    }
+    case "resetWeek":{ if(!confirm("Réinitialiser cette semaine sur la proposition automatique ?"))return; const rid=state.ui.currentRoomId; if(state.schedules[rid])delete state.schedules[rid][state.ui.weekStart]; saveState(); break; }
+    case "assignCross":{ const sel=document.getElementById("crossSel"); const id=sel&&sel.value; if(!id)return; const rid=state.ui.currentRoomId,monIso=state.ui.weekStart; if(!state.schedules[rid])state.schedules[rid]={}; if(!state.schedules[rid][monIso])state.schedules[rid][monIso]={}; if(!state.schedules[rid][monIso][id])state.schedules[rid][monIso][id]=Array(7).fill(''); saveState(); break; }
+    case "unassign":{ const rid=state.ui.currentRoomId,monIso=state.ui.weekStart; if(state.schedules[rid]&&state.schedules[rid][monIso])delete state.schedules[rid][monIso][el.dataset.emp]; saveState(); break; }
+
+    case "addAbs":{
+      const id=val("absEmp"), s=val("absStart"), e2=val("absEnd")||val("absStart"), reason=val("absReason").trim();
+      if(!id||!s){alert("Agent et date de début requis.");return;}
+      addAbsence(id,{id:uid("abs"),start:s,end:e2,type:"absence",reason,status:"enregistree",createdAt:new Date().toISOString()});
+      saveState(); break;
+    }
+    case "addPerm":{
+      const id=val("permEmp"), s=val("permStart"), e2=val("permEnd")||val("permStart"), reason=val("permReason").trim();
+      if(!id||!s){alert("Agent et date requis.");return;}
+      submitPermission(id,s,e2,reason); break;
+    }
+    case "myPerm":{
+      const e=currentAgent(); if(!e){alert("Choisis ton nom.");return;}
+      const s=val("myStart"), e2=val("myEnd")||val("myStart"), reason=val("myReason").trim();
+      if(!s){alert("Date requise.");return;}
+      submitPermission(e.id,s,e2,reason); break;
+    }
+    case "delAbs":{ if(!confirm("Annuler cette absence/demande ?"))return; const eid=el.dataset.eid; state.absences[eid]=(state.absences[eid]||[]).filter(a=>a.id!==el.dataset.id); saveState(); break; }
+
+    case "mailto":{ window.location.href=decodeURIComponent(el.dataset.href); return; }
+    case "copyOne":{ copyText(decodeURIComponent(el.dataset.body)); flash(el,"Copié ✓"); return; }
+    case "copyAll":{
+      const rid=state.ui.currentRoomId, monIso=state.ui.weekStart; const r=room(rid);
+      const {dates,roster,grid}=weekSchedule(rid,monIso);
+      let all=`PLANNINGS – Control Room ${r.name} – semaine du ${fmtShort(dates[0])} au ${fmtShort(dates[6])}\n\n`+
+        roster.map(e=>emailBody(e,r,dates,grid[e.id])).join("\n\n=========================================\n\n");
+      copyText(all); flash(el,"Tout copié ✓"); return;
+    }
+  }
+}
+function submitPermission(empId,start,end,reason){
+  const h=hoursUntil(start);
+  if(h<48){
+    addAbsence(empId,{id:uid("abs"),start,end,type:"permission",reason,status:"refusee",createdAt:new Date().toISOString()});
+    saveState();
+    alert(`Demande REFUSÉE : il reste ${Math.max(0,Math.round(h))} h avant la date, or le minimum est de 48 h. La demande n'est pas prise en compte dans le planning.`);
+    return;
+  }
+  addAbsence(empId,{id:uid("abs"),start,end,type:"permission",reason,status:"enregistree",createdAt:new Date().toISOString()});
+  saveState();
+  alert("Demande enregistrée (délai de 48 h respecté). Elle apparaît dans le planning.");
+}
+
+/* ===================== UTILS ===================== */
+function val(id){const e=document.getElementById(id);return e?e.value:"";}
+function setVal(id,v){const e=document.getElementById(id);if(e)e.value=v;}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function copyText(t){ try{navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");}catch(_){}document.body.removeChild(ta);} }
+function flash(el,m){const o=el.textContent;el.textContent=m;setTimeout(()=>{el.textContent=o;},1200);}
+
+/* ===================== INIT ===================== */
+(async function(){ await loadState(); render(); })();
+</script>
+</body>
+</html>
+<!-- ============================================================
+     NOTE POUR L'ÉQUIPE (2026-06-18) :
+     Ce fichier est le PROTOTYPE DE RÉFÉRENCE fonctionnel/UX uniquement.
+     - window.storage est une API de sandbox : à remplacer entièrement
+       par une vraie persistance backend (voir docs/CONTRACT.md).
+     - Le sélecteur "Je suis <agent>" n'est pas une authentification :
+       à remplacer par un vrai login (voir docs/CONTRACT.md, rôles
+       manager/agent).
+     - Toute la logique métier (cycle J-N-R ancré sur REF, règle des
+       48h pour les permissions, calcul de couverture, renfort
+       inter-salles) DOIT être portée fidèlement côté backend Laravel,
+       pas seulement recopiée côté frontend.
+     ============================================================ -->
