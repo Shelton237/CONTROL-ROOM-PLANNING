@@ -98,3 +98,11 @@ Si un agent a besoin d'un changement dans le socle partagé (`lib/api.ts`, `lib/
 ## Hors scope pour l'instant
 
 - Déploiement (`crm.thara-services.mg/planning`) : en attente des paramètres serveur. Ne pas configurer de vhost/CI de déploiement avant le feu vert.
+
+## Notes d'implémentation backend (Agent Backend)
+
+- Stack de tests : PHPUnit (pas de plugin Pest installé dans `composer.json` fourni au scaffold) ; `phpunit.xml` force `DB_CONNECTION=sqlite` + `DB_DATABASE=:memory:` pour les tests, indépendamment de la sqlite de dev (`database/database.sqlite`).
+- Logique métier portée fidèlement dans `app/Support/PlanningEngine.php` (cycle J/N/R ancré REF=2026-01-01, jours fixes + parité ISO week, couverture, format `emailBody()`), `app/Support/ScheduleService.php` (roster/grid/coverage par semaine, résolution de cellule effective ABS > override > auto, renfort inter-salles via `room_week_loans`), et `app/Support/AbsenceService.php` (règle des 48h).
+- Auth : Sanctum *personal access tokens* uniquement (pas de guard `web` stateful), middleware applicatif `role:manager|agent` (alias enregistré dans `bootstrap/app.php`) pour scinder les routes manager/agent. Les routes agent ne prennent jamais d'`employee_id` en paramètre : elles dérivent toujours l'employé depuis `$request->user()->employee`.
+- `routes/api.php` n'existait pas dans le scaffold ; créé et enregistré via `withRouting(api: ...)` dans `bootstrap/app.php`.
+- Écart mineur : pas de `Policies` Laravel dédiées (au sens `App\Policies`) — le contrôle de rôle se fait via le middleware `role` + scope explicite dans les controllers agent, ce qui couvre le besoin du contrat sans complexité additionnelle.
