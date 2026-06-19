@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { AgentNav } from "./components/AgentNav";
 import { Legend, cellClass } from "./components/StatusCell";
 import type { ScheduleResponse } from "./types";
 import { DSHORT, fmtShort, isoWeekNum, mondayISOof, todayISO, weekParity } from "./lib/dates";
@@ -53,7 +52,6 @@ export default function AgentWeekPage() {
 
   return (
     <div className="bg-panel border border-line rounded-lg p-5">
-      <AgentNav />
       <h2 className="text-lg font-semibold mb-1">Ma semaine</h2>
       <p className="text-sm text-muted mb-4">
         Planning personnel en lecture seule. Pour toute modification, contacte le responsable.

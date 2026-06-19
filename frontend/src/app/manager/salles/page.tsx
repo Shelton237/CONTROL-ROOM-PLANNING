@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ManagerShell } from "../_components/ManagerShell";
+import { useDialog } from "../_components/DialogProvider";
 import { useRooms } from "../_components/useRooms";
-import { createRoom, deleteRoom, updateRoom } from "../api-manager";
+import { createRoom, deleteRoom, listEmployees, updateRoom } from "../api-manager";
 import { ApiError } from "@/lib/auth";
 
 export default function RoomsPage() {
@@ -15,9 +16,21 @@ export default function RoomsPage() {
 }
 
 function RoomsTab() {
+  const { confirm, prompt } = useDialog();
   const { rooms, loading, error: loadError, reload } = useRooms();
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    listEmployees()
+      .then((employees) => {
+        const next: Record<number, number> = {};
+        for (const e of employees) next[e.room_id] = (next[e.room_id] || 0) + 1;
+        setCounts(next);
+      })
+      .catch(() => {});
+  }, [rooms]);
 
   async function handleAdd() {
     const name = newName.trim();
@@ -32,10 +45,10 @@ function RoomsTab() {
   }
 
   async function handleRename(id: number, current: string) {
-    const name = prompt("Nouveau nom :", current);
-    if (!name || !name.trim()) return;
+    const name = await prompt({ title: "Renommer la salle", label: "Nouveau nom", defaultValue: current });
+    if (!name) return;
     try {
-      await updateRoom(id, name.trim());
+      await updateRoom(id, name);
       await reload();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Erreur lors du renommage.");
@@ -43,7 +56,12 @@ function RoomsTab() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Supprimer cette salle ?")) return;
+    const ok = await confirm({
+      title: "Supprimer la salle",
+      message: "Supprimer cette salle ?",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     try {
       await deleteRoom(id);
       await reload();
@@ -56,8 +74,9 @@ function RoomsTab() {
     <div className="bg-panel border border-line rounded-lg p-4">
       <h2 className="text-lg font-semibold mb-1">Salles de contrôle</h2>
       <p className="text-sm text-muted mb-3">
-        Format verrouillé : <b>service de quart 24/7</b>, rotation Jour · Nuit · Repos pour les agents
-        tournants, plus les agents jour fixe. 2 Jour + 2 Nuit assurés en permanence (couverture).
+        Format verrouillé : <b>service de quart 24/7</b>, rotation stricte Jour · Nuit · Repos pour les
+        agents tournants (3 binômes), plus l&apos;agent jour fixe (Sylvie). 2 Jour + 2 Nuit assurés en
+        permanence.
       </p>
 
       {(error || loadError) && (
@@ -72,7 +91,7 @@ function RoomsTab() {
         <table className="border-collapse w-full text-sm mb-4">
           <thead>
             <tr>
-              {["Salle", "Mode", ""].map((h) => (
+              {["Salle", "Mode", "Effectif", ""].map((h) => (
                 <th
                   key={h}
                   className="border border-line px-2 py-1.5 text-left bg-[#fafafa] text-[12.5px] uppercase tracking-wide text-muted"
@@ -85,7 +104,7 @@ function RoomsTab() {
           <tbody>
             {rooms.length === 0 ? (
               <tr>
-                <td colSpan={3} className="text-center text-muted text-sm p-3 border border-line">
+                <td colSpan={4} className="text-center text-muted text-sm p-3 border border-line">
                   Aucune salle
                 </td>
               </tr>
@@ -94,6 +113,7 @@ function RoomsTab() {
                 <tr key={r.id}>
                   <td className="border border-line px-2 py-1.5 font-semibold">{r.name}</td>
                   <td className="border border-line px-2 py-1.5">Quart 24/7 – J · N · R</td>
+                  <td className="border border-line px-2 py-1.5">{counts[r.id] || 0} employés</td>
                   <td className="border border-line px-2 py-1.5 text-right whitespace-nowrap">
                     <button
                       className="text-red underline text-xs mr-2"
@@ -114,10 +134,10 @@ function RoomsTab() {
 
       <h3 className="text-sm font-semibold mb-2">Ajouter une salle</h3>
       <div className="flex gap-3 items-end flex-wrap">
-        <div>
+        <div className="flex-1 min-w-[150px]">
           <label className="block text-xs font-semibold text-muted mb-1">Nom</label>
           <input
-            className="border border-line rounded-md px-3 py-2 text-sm"
+            className="w-full border border-line rounded-md px-3 py-2 text-sm"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Ex : Talatamaty"
@@ -125,7 +145,7 @@ function RoomsTab() {
         </div>
         <button
           type="button"
-          className="bg-red hover:bg-red-dark text-white rounded-md px-4 py-2 text-sm font-semibold"
+          className="bg-red hover:bg-red-dark text-white rounded-md px-4 py-2 text-sm font-semibold shrink-0"
           onClick={handleAdd}
         >
           + Ajouter

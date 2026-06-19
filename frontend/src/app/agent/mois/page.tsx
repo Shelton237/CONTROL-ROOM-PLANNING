@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { AgentNav } from "../components/AgentNav";
-import { Legend, StatusCell } from "../components/StatusCell";
+import { StatusCell } from "../components/StatusCell";
 import type { CellValue, ScheduleResponse } from "../types";
-import { DSHORT, fmtShort, isoWeekNum, monthWeeks, shiftMonthAnchor, todayISO } from "../lib/dates";
+import { DSHORT, fmtShort, monthWeeks, shiftMonthAnchor, todayISO } from "../lib/dates";
 
 type WeekData = {
   weekStart: string;
@@ -45,13 +44,11 @@ export default function AgentMonthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchor]);
 
+  const agentName = weeksData.find((w) => w.schedule?.roster?.[0])?.schedule?.roster[0]?.name;
+
   return (
     <div className="bg-panel border border-line rounded-lg p-5">
-      <AgentNav />
-      <h2 className="text-lg font-semibold mb-1">Mon mois</h2>
-      <p className="text-sm text-muted mb-4">
-        Vue mensuelle agrégée de mon planning personnel, semaine par semaine (lecture seule).
-      </p>
+      <h2 className="text-lg font-semibold mb-1">Mon mois{agentName ? ` – ${agentName}` : ""}</h2>
 
       <div className="flex items-center gap-2 mb-4">
         <button
@@ -69,8 +66,6 @@ export default function AgentMonthPage() {
         </button>
       </div>
 
-      <Legend />
-
       {loading && <p className="text-sm text-muted">Chargement…</p>}
 
       {!loading &&
@@ -80,9 +75,7 @@ export default function AgentMonthPage() {
           const mine: CellValue[] = me ? schedule?.grid[String(me.id)] ?? [] : [];
           return (
             <div key={weekStart} className="mb-5">
-              <h4 className="text-sm font-medium mb-1.5">
-                Semaine du {fmtShort(weekStart)} (S{isoWeekNum(weekStart)})
-              </h4>
+              <h4 className="text-sm font-medium mb-1.5">Semaine du {fmtShort(weekStart)}</h4>
               {error && (
                 <div className="text-sm text-red bg-abs-bg border border-red/30 rounded-md px-3 py-2">
                   {error}
@@ -93,7 +86,10 @@ export default function AgentMonthPage() {
                   <thead>
                     <tr>
                       {dates.map((iso, i) => (
-                        <th key={iso} className="border border-line bg-gray-50 py-1 px-1.5 text-muted">
+                        <th
+                          key={iso}
+                          className="border border-line bg-[#fafafa] py-1 px-1.5 text-left uppercase tracking-wide text-muted"
+                        >
                           {DSHORT[i]} {fmtShort(iso).split(" ")[0]}
                         </th>
                       ))}

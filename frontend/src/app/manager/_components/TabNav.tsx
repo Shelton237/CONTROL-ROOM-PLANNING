@@ -7,15 +7,15 @@ const TABS: [string, string][] = [
   ["/manager", "Planning"],
   ["/manager/mois", "Mois"],
   ["/manager/employes", "Employés"],
-  ["/manager/salles", "Salles"],
   ["/manager/absences", "Absences & demandes"],
   ["/manager/diffusion", "Diffusion"],
+  ["/manager/salles", "Salles"],
 ];
 
 export function TabNav() {
   const pathname = usePathname();
   return (
-    <nav className="flex bg-panel border-b border-line px-3 flex-wrap -mx-5 mb-5">
+    <nav className="flex w-full bg-panel border-b border-line px-5 flex-wrap">
       {TABS.map(([href, label]) => {
         const active = pathname === href;
         return (

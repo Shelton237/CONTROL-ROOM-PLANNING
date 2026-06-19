@@ -93,11 +93,11 @@ Si un agent a besoin d'un changement dans le socle partagé (`lib/api.ts`, `lib/
 
 - `charcoal #1a1a1a`, `red #d32027` / `red-dark #a81820`
 - `jour #1f9d55` (bg `#e6f5ec`), `nuit #2b3a67` (bg `#e6e9f2`), `repos #9aa0a6` (bg `#f0f0f2`), `abs #d32027` (bg `#fdecec`)
-- Logo : "THARA · CR", header charcoal, liseré rouge en bas du header.
+- Logo : fichier client `frontend/public/thara-logo.png` ("Thara Services", texte noir + bouclier rouge/noir). Sur le header (fond charcoal), affiché dans un badge blanc arrondi pour le contraste ; sur la page de login (fond clair), affiché directement sans badge. Header charcoal, liseré rouge en bas du header.
 
-## Hors scope pour l'instant
+## Déploiement
 
-- Déploiement (`crm.thara-services.mg/planning`) : en attente des paramètres serveur. Ne pas configurer de vhost/CI de déploiement avant le feu vert.
+App accessible en prod sur `http://crm.thara-services.mg/planning`, derrière le reverse proxy déjà existant sur ce serveur pour ce domaine (TLS + autres apps gérés ailleurs, hors de ce repo). Conteneurisé via Docker (dev : `docker-compose.yml` ; prod : `docker-compose.prod.yaml` + MySQL + gateway nginx interne sur `/planning`). Voir `docs/DEPLOYMENT.md` pour la procédure complète et le snippet à ajouter côté reverse proxy existant.
 
 ## Notes d'implémentation backend (Agent Backend)
 

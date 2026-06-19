@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePlanningContext } from "./_components/PlanningContext";
 import { ManagerShell } from "./_components/ManagerShell";
+import { useDialog } from "./_components/DialogProvider";
 import { useRooms } from "./_components/useRooms";
 import { RoomSelect } from "./_components/RoomSelect";
 import { WeekNav } from "./_components/WeekNav";
@@ -35,6 +36,7 @@ export default function PlanningPage() {
 }
 
 function PlanningTab() {
+  const { confirm } = useDialog();
   const { rooms, loading: roomsLoading } = useRooms();
   const { currentRoomId, setCurrentRoomId, weekStart, setWeekStart } = usePlanningContext();
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(null);
@@ -82,7 +84,12 @@ function PlanningTab() {
 
   async function handleReset() {
     if (!currentRoomId) return;
-    if (!confirm("Réinitialiser cette semaine sur la proposition automatique ?")) return;
+    const ok = await confirm({
+      title: "Réinitialiser la semaine",
+      message: "Réinitialiser cette semaine sur la proposition automatique ?",
+      confirmLabel: "Réinitialiser",
+    });
+    if (!ok) return;
     try {
       await resetWeek(currentRoomId, weekStart);
       await reload();
@@ -158,7 +165,7 @@ function PlanningTab() {
 
       <div className="bg-[#fffbe6] border border-[#f0e0a0] rounded-md px-3 py-2.5 text-sm mb-3">
         Le planning J-N-R est <b>proposé automatiquement</b> chaque semaine. Les absences validées
-        apparaissent en rouge et creusent la couverture ⚠ → comble alors le trou avec un renfort
+        apparaissent en rouge et creusent la couverture → comble alors le trou avec un renfort
         ci-dessous. Clique une cellule pour ajuster (J→N→R→vide).
       </div>
 

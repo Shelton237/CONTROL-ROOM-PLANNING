@@ -2,14 +2,32 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ManagerShell } from "../_components/ManagerShell";
+import { useDialog } from "../_components/DialogProvider";
 import { usePlanningContext } from "../_components/PlanningContext";
 import { useRooms } from "../_components/useRooms";
 import { RoomSelect } from "../_components/RoomSelect";
 import { WeekNav } from "../_components/WeekNav";
 import { getDiffusionPreview, sendDiffusion } from "../api-manager";
 import type { DiffusionEmail, DiffusionSendResponse } from "../types";
-import { fmtShort } from "../date-utils";
+import { addDaysISO, fmtShort } from "../date-utils";
 import { ApiError } from "@/lib/auth";
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+    } catch {
+      // ignore – navigateur sans support clipboard
+    }
+    document.body.removeChild(ta);
+  }
+}
 
 export default function DiffusionPage() {
   return (
@@ -20,6 +38,7 @@ export default function DiffusionPage() {
 }
 
 function DiffusionTab() {
+  const { confirm } = useDialog();
   const { rooms, loading: roomsLoading } = useRooms();
   const { currentRoomId, setCurrentRoomId, weekStart, setWeekStart } = usePlanningContext();
   const [emails, setEmails] = useState<DiffusionEmail[]>([]);
@@ -27,6 +46,27 @@ function DiffusionTab() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<DiffusionSendResponse | null>(null);
+  const [copiedId, setCopiedId] = useState<number | "all" | null>(null);
+
+  function flashCopied(id: number | "all") {
+    setCopiedId(id);
+    setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 1200);
+  }
+
+  async function handleCopyOne(mail: DiffusionEmail) {
+    await copyText(mail.body);
+    flashCopied(mail.employee_id);
+  }
+
+  async function handleCopyAll() {
+    const room = rooms.find((r) => r.id === currentRoomId);
+    const header = `PLANNINGS – Control Room ${room?.name ?? ""} – semaine du ${fmtShort(
+      weekStart
+    )} au ${fmtShort(addDaysISO(weekStart, 6))}`;
+    const all = `${header}\n\n${emails.map((m) => m.body).join("\n\n=========================================\n\n")}`;
+    await copyText(all);
+    flashCopied("all");
+  }
 
   useEffect(() => {
     if (!currentRoomId && rooms.length) setCurrentRoomId(rooms[0].id);
@@ -53,7 +93,12 @@ function DiffusionTab() {
 
   async function handleSend() {
     if (!currentRoomId) return;
-    if (!confirm("Envoyer réellement les e-mails de planning pour cette semaine ?")) return;
+    const ok = await confirm({
+      title: "Envoyer les e-mails",
+      message: "Envoyer réellement les e-mails de planning pour cette semaine ?",
+      confirmLabel: "Envoyer",
+    });
+    if (!ok) return;
     setSending(true);
     setError(null);
     try {
@@ -95,6 +140,14 @@ function DiffusionTab() {
         </div>
         <button
           type="button"
+          disabled={loading || emails.length === 0}
+          className="bg-white border border-line rounded-md px-4 py-2 text-sm font-semibold hover:border-charcoal disabled:opacity-50"
+          onClick={handleCopyAll}
+        >
+          {copiedId === "all" ? "Tout copié ✓" : "Copier tout"}
+        </button>
+        <button
+          type="button"
           disabled={sending || loading || emails.length === 0}
           className="bg-red hover:bg-red-dark text-white rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-50"
           onClick={handleSend}
@@ -131,24 +184,50 @@ function DiffusionTab() {
           Aucun agent planifié.
         </div>
       ) : (
-        emails.map((mail) => (
-          <div key={mail.employee_id} className="border border-line rounded-lg p-3.5 mb-3">
-            <div className="flex justify-between items-center gap-2.5 flex-wrap">
-              <div>
-                <b>{mail.name}</b>{" "}
-                {mail.email ? (
-                  <span className="text-xs text-muted">{mail.email}</span>
-                ) : (
-                  <span className="text-xs text-red">e-mail manquant</span>
-                )}
+        emails.map((mail) => {
+          const noMail = !mail.email;
+          const mailtoHref = `mailto:${encodeURIComponent(mail.email || "")}?subject=${encodeURIComponent(
+            mail.subject
+          )}&body=${encodeURIComponent(mail.body)}`;
+          return (
+            <div key={mail.employee_id} className="border border-line rounded-lg p-3.5 mb-3">
+              <div className="flex justify-between items-center gap-2.5 flex-wrap">
+                <div>
+                  <b>{mail.name}</b>{" "}
+                  {mail.email ? (
+                    <span className="text-xs text-muted">{mail.email}</span>
+                  ) : (
+                    <span className="text-xs text-red">e-mail manquant</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="text-xs text-muted">{mail.subject}</div>
+                  <a
+                    href={noMail ? undefined : mailtoHref}
+                    aria-disabled={noMail}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold ${
+                      noMail
+                        ? "bg-abs-bg text-red/50 cursor-not-allowed pointer-events-none"
+                        : "bg-red text-white hover:bg-red-dark"
+                    }`}
+                  >
+                    ✉ Ouvrir l&apos;e-mail
+                  </a>
+                  <button
+                    type="button"
+                    className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-charcoal"
+                    onClick={() => handleCopyOne(mail)}
+                  >
+                    {copiedId === mail.employee_id ? "Copié ✓" : "Copier"}
+                  </button>
+                </div>
               </div>
-              <div className="text-xs text-muted">{mail.subject}</div>
+              <pre className="bg-[#fafafa] border border-line rounded-md p-2.5 text-[13px] whitespace-pre-wrap mt-2.5 font-sans">
+                {mail.body}
+              </pre>
             </div>
-            <pre className="bg-[#fafafa] border border-line rounded-md p-2.5 text-[13px] whitespace-pre-wrap mt-2.5 font-sans">
-              {mail.body}
-            </pre>
-          </div>
-        ))
+          );
+        })
       )}
 
       <p className="text-xs text-muted mt-2">

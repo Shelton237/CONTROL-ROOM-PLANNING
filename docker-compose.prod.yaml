@@ -1,0 +1,86 @@
+# Stack de prod : MySQL + backend (nginx+php-fpm) + frontend (Next.js
+# standalone) + gateway nginx exposant l'app sous /planning.
+#
+# Le serveur de crm.thara-services.mg a déjà un reverse proxy / vhost pour ce
+# domaine (autres apps sur d'autres chemins) : ce compose n'écoute donc PAS
+# sur le port 80/443 de l'hôte directement. Il expose le conteneur "gateway"
+# sur ${PUBLIC_PORT} (8080 par défaut), à relayer par le reverse proxy
+# existant vers /planning. Voir docs/DEPLOYMENT.md pour le snippet à ajouter
+# côté serveur.
+#
+# Usage :
+#   cp .env.prod.example .env   (puis compléter, voir docs/DEPLOYMENT.md)
+#   docker compose -f docker-compose.prod.yaml up -d --build
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      target: prod
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      APP_NAME: "Thara Planning Control Room"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY}
+      APP_URL: ${APP_URL:-http://crm.thara-services.mg/planning}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      MAIL_MAILER: ${MAIL_MAILER:-smtp}
+      MAIL_SCHEME: ${MAIL_SCHEME:-smtp}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+    volumes:
+      - backend_storage:/var/www/html/storage
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://crm.thara-services.mg/planning/api}
+        NEXT_BASE_PATH: /planning
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    volumes:
+      - ./docker/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${PUBLIC_PORT:-8080}:80"
+
+volumes:
+  mysql_data:
+  backend_storage:

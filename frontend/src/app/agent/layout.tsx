@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Header } from "@/components/Header";
+import { AgentNav } from "./components/AgentNav";
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -20,6 +21,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   return (
     <>
       <Header />
+      <AgentNav />
       <main className="max-w-5xl w-full mx-auto p-5">{children}</main>
     </>
   );

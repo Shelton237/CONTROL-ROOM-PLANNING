@@ -1,0 +1,13 @@
+vendor
+node_modules
+.env
+.env.backup
+.git
+.phpunit.cache
+tests
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+database/database.sqlite

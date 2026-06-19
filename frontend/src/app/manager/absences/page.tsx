@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ManagerShell } from "../_components/ManagerShell";
+import { useDialog } from "../_components/DialogProvider";
 import {
   createAbsence,
   createPermission,
@@ -26,6 +27,7 @@ function emptyAbsForm() {
 }
 
 function AbsencesTab() {
+  const { confirm } = useDialog();
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,9 +61,10 @@ function AbsencesTab() {
 
   async function handleAddAbsence() {
     if (!absForm.employeeId || !absForm.start) {
-      alert("Agent et date de début requis.");
+      setError("Agent et date de début requis.");
       return;
     }
+    setError(null);
     try {
       await createAbsence({
         employee_id: Number(absForm.employeeId),
@@ -79,9 +82,10 @@ function AbsencesTab() {
 
   async function handleAddPermission() {
     if (!permForm.employeeId || !permForm.start) {
-      alert("Agent et date requis.");
+      setError("Agent et date requis.");
       return;
     }
+    setError(null);
     try {
       const result = await createPermission({
         employee_id: Number(permForm.employeeId),
@@ -104,7 +108,12 @@ function AbsencesTab() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Annuler cette absence/demande ?")) return;
+    const ok = await confirm({
+      title: "Annuler la demande",
+      message: "Annuler cette absence/demande ?",
+      confirmLabel: "Annuler la demande",
+    });
+    if (!ok) return;
     try {
       await deleteAbsence(id);
       await reload();

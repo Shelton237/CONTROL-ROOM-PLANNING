@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { AgentNav } from "../components/AgentNav";
 import type { Absence, AbsenceType, PermissionRequestPayload } from "../types";
 import { fmtShort, hoursUntil } from "../lib/dates";
 
@@ -98,7 +97,6 @@ export default function AgentRequestsPage() {
 
   return (
     <div className="bg-panel border border-line rounded-lg p-5">
-      <AgentNav />
       <h2 className="text-lg font-semibold mb-1">Mes demandes</h2>
       <p className="text-sm text-muted mb-4">
         Historique de mes absences et permissions, et formulaire de nouvelle demande de permission.

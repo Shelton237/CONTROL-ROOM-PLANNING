@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ManagerShell } from "../_components/ManagerShell";
+import { useDialog } from "../_components/DialogProvider";
 import { useRooms } from "../_components/useRooms";
 import { createEmployee, deleteEmployee, listEmployees, updateEmployee } from "../api-manager";
 import type { DaySpecValue, Employee, EmployeeType } from "../types";
@@ -35,6 +36,7 @@ export default function EmployeesPage() {
 }
 
 function EmployeesTab() {
+  const { confirm } = useDialog();
   const { rooms, loading: roomsLoading } = useRooms();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,13 +92,14 @@ function EmployeesTab() {
 
   async function handleSave() {
     if (!form.name.trim()) {
-      alert("Nom requis.");
+      setError("Nom requis.");
       return;
     }
     if (!form.roomId) {
-      alert("Salle requise.");
+      setError("Salle requise.");
       return;
     }
+    setError(null);
     const payload = {
       room_id: Number(form.roomId),
       name: form.name.trim(),
@@ -119,7 +122,12 @@ function EmployeesTab() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Supprimer cet employé ?")) return;
+    const ok = await confirm({
+      title: "Supprimer l'employé",
+      message: "Supprimer cet employé ?",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     try {
       await deleteEmployee(id);
       await reload();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth, ApiError } from "@/lib/auth";
 
@@ -33,9 +34,14 @@ export default function LoginPage() {
         className="w-full max-w-sm bg-panel border border-line rounded-lg p-6 shadow-sm"
       >
         <div className="mb-6 text-center">
-          <div className="font-bold text-xl tracking-wide text-charcoal">
-            THARA<span className="text-red">·</span>CR
-          </div>
+          <Image
+            src="/thara-logo.png"
+            alt="Thara Services"
+            width={220}
+            height={70}
+            className="h-14 w-auto mx-auto"
+            priority
+          />
           <p className="text-sm text-muted mt-1">Planning Control Room</p>
         </div>
 

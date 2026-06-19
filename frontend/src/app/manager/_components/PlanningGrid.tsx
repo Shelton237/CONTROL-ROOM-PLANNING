@@ -47,7 +47,7 @@ export function PlanningGrid({ schedule, onCellClick, onUnassign, readOnly }: Pr
           {dates.map((iso, i) => (
             <th
               key={iso}
-              className="border border-line px-2 py-1.5 bg-[#fafafa] text-[12.5px] uppercase tracking-wide text-muted"
+              className="border border-line px-2 py-1.5 text-left bg-[#fafafa] text-[12.5px] uppercase tracking-wide text-muted"
             >
               {DSHORT[i]}
               <br />
@@ -108,7 +108,6 @@ export function PlanningGrid({ schedule, onCellClick, onUnassign, readOnly }: Pr
               }`}
             >
               {j}
-              {j < 2 ? " ⚠" : ""}
             </td>
           ))}
           <td className="border border-line" />
@@ -123,7 +122,6 @@ export function PlanningGrid({ schedule, onCellClick, onUnassign, readOnly }: Pr
               }`}
             >
               {n}
-              {n < 2 ? " ⚠" : ""}
             </td>
           ))}
           <td className="border border-line" />

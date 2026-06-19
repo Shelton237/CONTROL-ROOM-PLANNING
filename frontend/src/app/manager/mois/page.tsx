@@ -96,8 +96,8 @@ function MonthTab() {
       </div>
 
       <p className="text-sm text-muted mb-3">
-        Vue mensuelle, dérivée semaine par semaine de l&apos;API planning. Couverture Jour/Nuit en bas
-        de chaque semaine.
+        Vue mensuelle, proposée automatiquement semaine par semaine. Couverture Jour/Nuit en bas de
+        chaque semaine.
       </p>
 
       {error && (
