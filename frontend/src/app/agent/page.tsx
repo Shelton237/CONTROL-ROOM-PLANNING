@@ -48,7 +48,9 @@ export default function AgentWeekPage() {
   const me = schedule?.roster?.[0];
   const mine = me ? schedule?.grid[String(me.id)] ?? [] : [];
   const dates = schedule?.dates ?? [];
+  const rooms = schedule?.rooms ?? [];
   const vacations = mine.filter((s) => s === "J" || s === "N").length;
+  const distinctRoomNames = Array.from(new Set(rooms.map((r) => r.name)));
 
   return (
     <div className="bg-panel border border-line rounded-lg p-5">
@@ -102,6 +104,15 @@ export default function AgentWeekPage() {
 
       {!loading && !error && me && dates.length > 0 && (
         <>
+          {distinctRoomNames.length === 1 ? (
+            <p className="text-sm mb-2">
+              Salle : <b>{distinctRoomNames[0]}</b>
+            </p>
+          ) : distinctRoomNames.length > 1 ? (
+            <p className="text-sm mb-2 text-red">
+              Plusieurs salles cette semaine (renfort) : <b>{distinctRoomNames.join(", ")}</b>
+            </p>
+          ) : null}
           <div className="flex gap-1 flex-wrap my-2">
             {dates.map((iso, d) => {
               const s = mine[d] || "R";
@@ -117,6 +128,11 @@ export default function AgentWeekPage() {
                   </div>
                   <div className="font-bold text-lg mt-0.5">{s || "R"}</div>
                   <div className="text-[11px] text-muted">{STATUS_LABEL[s] ?? STATUS_LABEL[""]}</div>
+                  {rooms[d] && (
+                    <div className="text-[10px] text-muted mt-0.5 truncate" title={rooms[d].name}>
+                      {rooms[d].name}
+                    </div>
+                  )}
                 </div>
               );
             })}

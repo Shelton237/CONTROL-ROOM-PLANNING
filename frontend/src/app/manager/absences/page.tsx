@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { ManagerShell } from "../_components/ManagerShell";
 import { useDialog } from "../_components/DialogProvider";
 import {
+  approveAbsence,
   createAbsence,
   createPermission,
   deleteAbsence,
   listAbsences,
+  rejectAbsence,
 } from "../api-manager";
 import { listEmployees } from "../api-manager";
 import type { Absence, Employee } from "../types";
@@ -122,13 +124,35 @@ function AbsencesTab() {
     }
   }
 
+  async function handleApprove(id: number) {
+    try {
+      await approveAbsence(id);
+      await reload();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Erreur lors de la validation.");
+    }
+  }
+
+  async function handleReject(id: number) {
+    try {
+      await rejectAbsence(id);
+      await reload();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Erreur lors du rejet.");
+    }
+  }
+
+  const pendingCount = absences.filter((a) => a.status === "en_attente").length;
+
   return (
     <div className="bg-panel border border-line rounded-lg p-4">
       <h2 className="text-lg font-semibold mb-1">Absences &amp; demandes</h2>
       <p className="text-sm text-muted mb-3">
-        Le responsable peut déclarer une <b>absence</b> directement (maladie, urgence – sans délai).
-        Une <b>demande de permission</b> n&apos;est <b>enregistrée que si elle est faite au moins 48 h à
-        l&apos;avance</b> ; sinon elle est refusée et n&apos;impacte pas le planning.
+        Le responsable peut déclarer une <b>absence</b> directement (maladie, urgence – sans délai), ou
+        saisir lui-même une <b>demande de permission</b> (décidée immédiatement selon la règle des 48 h).
+        Une demande <b>soumise par l&apos;agent</b> reste <b>en attente</b> jusqu&apos;à ce que tu la
+        valides ou la rejettes ci-dessous — sauf si le délai de 48 h est déjà dépassé, auquel cas elle
+        est refusée automatiquement.
       </p>
 
       {error && (
@@ -139,6 +163,12 @@ function AbsencesTab() {
       {notice && (
         <div className="mb-4 text-sm bg-[#fffbe6] border border-[#f0e0a0] rounded-md px-3 py-2">
           {notice}
+        </div>
+      )}
+      {pendingCount > 0 && (
+        <div className="mb-4 text-sm bg-[#fffbe6] border border-[#f0e0a0] rounded-md px-3 py-2">
+          <b>{pendingCount}</b> demande{pendingCount > 1 ? "s" : ""} en attente de validation —
+          voir l&apos;historique ci-dessous.
         </div>
       )}
 
@@ -295,13 +325,33 @@ function AbsencesTab() {
                       <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-jour-bg text-jour">
                         Enregistrée
                       </span>
+                    ) : a.status === "en_attente" ? (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#fffbe6] text-[#9a7b00] border border-[#f0e0a0]">
+                        En attente
+                      </span>
                     ) : (
                       <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-abs-bg text-abs">
-                        Refusée (&lt;48h)
+                        Refusée
                       </span>
                     )}
                   </td>
-                  <td className="border border-line px-2 py-1.5 text-right">
+                  <td className="border border-line px-2 py-1.5 text-right whitespace-nowrap">
+                    {a.status === "en_attente" && (
+                      <>
+                        <button
+                          className="text-jour underline text-xs mr-2"
+                          onClick={() => handleApprove(a.id)}
+                        >
+                          Valider
+                        </button>
+                        <button
+                          className="text-red underline text-xs mr-2"
+                          onClick={() => handleReject(a.id)}
+                        >
+                          Rejeter
+                        </button>
+                      </>
+                    )}
                     {a.status === "enregistree" && (
                       <button
                         className="text-red underline text-xs"

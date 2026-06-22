@@ -104,6 +104,14 @@ export function deleteAbsence(id: number) {
   return api.del<void>(`/absences/${id}`);
 }
 
+export function approveAbsence(id: number) {
+  return api.post<Absence>(`/absences/${id}/approve`);
+}
+
+export function rejectAbsence(id: number) {
+  return api.post<Absence>(`/absences/${id}/reject`);
+}
+
 export function createPermission(payload: {
   employee_id: number;
   start_date: string;

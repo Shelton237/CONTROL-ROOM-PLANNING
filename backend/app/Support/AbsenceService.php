@@ -36,8 +36,9 @@ class AbsenceService
     }
 
     /**
-     * Soumet une demande de permission (par l'agent ou saisie par le manager) et
-     * applique la règle des 48h.
+     * Demande de permission soumise par le manager directement (pour un employé) :
+     * applique la règle des 48h et décide immédiatement (le manager est déjà le
+     * validateur, pas besoin d'une étape d'approbation supplémentaire).
      */
     public function submitPermission(Employee $employee, string $start, string $end, ?string $reason): Absence
     {
@@ -51,5 +52,47 @@ class AbsenceService
             'reason' => $reason,
             'status' => $status,
         ]);
+    }
+
+    /**
+     * Demande de permission soumise par l'agent lui-même : la règle des 48h ne fait que
+     * refuser d'office les demandes trop tardives (statut définitif, le délai est
+     * intangible) ; sinon la demande reste `en_attente` jusqu'à ce que le manager la
+     * valide ou la rejette explicitement.
+     */
+    public function requestPermission(Employee $employee, string $start, string $end, ?string $reason): Absence
+    {
+        $hours = $this->hoursUntil($start);
+        $status = $hours < 48 ? 'refusee' : 'en_attente';
+
+        return $employee->absences()->create([
+            'start_date' => $start,
+            'end_date' => $end,
+            'type' => 'permission',
+            'reason' => $reason,
+            'status' => $status,
+        ]);
+    }
+
+    /**
+     * Le manager valide une demande en attente : elle devient enregistree (équivaut à
+     * une absence pour le planning).
+     */
+    public function approve(Absence $absence): Absence
+    {
+        $absence->update(['status' => 'enregistree']);
+
+        return $absence;
+    }
+
+    /**
+     * Le manager rejette une demande en attente : elle n'impacte pas le planning, mais
+     * reste visible dans l'historique.
+     */
+    public function reject(Absence $absence): Absence
+    {
+        $absence->update(['status' => 'refusee']);
+
+        return $absence;
     }
 }

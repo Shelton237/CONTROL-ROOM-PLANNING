@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Employee;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 
 /**
  * Port fidèle de la logique métier du prototype legacy (docs/legacy-prototype.html) :
@@ -65,6 +66,18 @@ class PlanningEngine
     public static function weekParity(string $monIso): int
     {
         return self::isoWeekNum($monIso) % 2;
+    }
+
+    /**
+     * Nombre de semaines entières écoulées entre le lundi de REF et monIso (lundi d'une
+     * semaine donnée). Toujours un multiple exact de 7 jours entre deux lundis, donc pas
+     * d'arrondi à gérer.
+     */
+    public static function weekIndex(string $monIso): int
+    {
+        $refMonday = self::mondayOf(self::REF);
+
+        return intdiv(self::dayNum($monIso) - self::dayNum($refMonday), 7);
     }
 
     /**
@@ -136,6 +149,78 @@ class PlanningEngine
         $dow = self::dowIso($iso);
 
         return in_array($dow, $workingDays, true) ? 'J' : 'R';
+    }
+
+    /**
+     * Statuts auto de tous les agents rotation d'une salle pour un jour donné, en tenant
+     * compte de l'agent jour fixe ("contrôle") s'il y en a un.
+     *
+     * Règle métier : jamais plus de 2 agents simultanément en J, ni plus de 2 en N (pas de
+     * plafond sur R), avec une progression J→N→R visible **au jour le jour** pour chaque
+     * agent (jamais de bloc figé sur toute la semaine).
+     *
+     * Avec exactement 3 binômes (6 agents), offsets 0/1/2 : chaque jour, les 3 binômes sont
+     * toujours sur 3 phases différentes (jamais deux binômes sur la même phase), donc
+     * exactement 1 binôme par phase -> 2J + 2N + 2R par construction, tous les jours, et
+     * chaque agent suit individuellement son cycle naturel `autoStatus()` (J→N→R→J→N→R, un
+     * jour par phase).
+     *
+     * S'il y a un agent fixe ("contrôle", toujours J les jours où il travaille) : le binôme
+     * naturellement en J ce jour-là se scinde UNIQUEMENT ce jour précis — un seul de ses 2
+     * membres garde son J (rejoint le contrôle, 2 en J au total), l'autre membre passe en R
+     * ce jour-là (son jour précédent était déjà R dans son cycle naturel, donc R→R→N reste
+     * une transition valide : jamais de saut direct N→J). Lequel des 2 membres "perd" son J
+     * alterne à chaque occurrence (tous les 3 jours pour ce binôme), pour l'équité — sans
+     * désynchroniser leur cycle réel d'un jour à l'autre.
+     *
+     * Toute autre configuration (pas de contrôle, ou nombre de binômes != 3) : on garde le
+     * cycle indépendant historique par employé (`autoStatus`), sans garantie de plafond —
+     * utilisé par les salles structurées différemment (plusieurs sites, formats variés).
+     *
+     * $awayEmployeeIds (ce jour précis : absence ou prêté ailleurs avec une valeur assignée
+     * là-bas) : un membre absent ne compte pas dans le calcul du conflit — son partenaire
+     * garde son J normalement plutôt que d'être inutilement rétrogradé en R (l'absent ne
+     * "consomme" pas la place puisqu'il n'est physiquement pas là).
+     *
+     * @param  Collection<int, Employee>  $rotating  agents type=rotation de la salle (hors agents prêtés)
+     * @param  int[]  $awayEmployeeIds
+     * @return array<int, string> employee_id => 'J'|'N'|'R'
+     */
+    public static function autoStatusesForRotation(Collection $rotating, ?Employee $control, string $iso, string $monIso, array $awayEmployeeIds = []): array
+    {
+        $statuses = $rotating->mapWithKeys(fn ($e) => [$e->id => self::autoStatus($e, $iso, $monIso)])->all();
+
+        $byBinome = $rotating->groupBy('binome')->sortKeys()->values();
+        if ($byBinome->count() !== 3) {
+            return $statuses;
+        }
+
+        $controlWorks = $control && in_array(self::dowIso($iso), self::workingDaysFor($control, $monIso), true);
+        if (! $controlWorks) {
+            return $statuses;
+        }
+
+        $n = self::dayNum($iso);
+        $downgradeIndex = ((intdiv($n, 3) % 2) + 2) % 2; // alterne lequel des 2 membres perd son J, à chaque occurrence (tous les 3 jours)
+
+        foreach ($byBinome as $pair) {
+            $members = $pair->values();
+            if ($members->count() !== 2 || $statuses[$members[0]->id] !== 'J' || $statuses[$members[1]->id] !== 'J') {
+                continue;
+            }
+
+            $presentCount = $members->filter(fn ($m) => ! in_array($m->id, $awayEmployeeIds, true))->count();
+            if ($presentCount <= 1) {
+                // l'un des deux (ou les deux) est absent ce jour-là : aucun conflit réel,
+                // celui qui est présent garde son J normalement.
+                continue;
+            }
+
+            $loser = $members[$downgradeIndex];
+            $statuses[$loser->id] = 'R';
+        }
+
+        return $statuses;
     }
 
     /**

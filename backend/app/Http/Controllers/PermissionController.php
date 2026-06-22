@@ -25,12 +25,22 @@ class PermissionController extends Controller
         ]);
 
         $employee = Employee::findOrFail($data['employee_id']);
+        $end = $data['end_date'] ?? $data['start_date'];
 
-        return $this->createPermission($employee, $data);
+        $absence = $this->absenceService->submitPermission(
+            $employee,
+            $data['start_date'],
+            $end,
+            $data['reason'] ?? null
+        );
+
+        return response()->json($absence, 201);
     }
 
     /**
-     * Agent : soumet sa propre demande de permission (scope = employee_id du user connecté).
+     * Agent : soumet sa propre demande de permission (scope = employee_id du user
+     * connecté). Reste `en_attente` jusqu'à validation/rejet du manager, sauf refus
+     * immédiat si la règle des 48h n'est déjà plus respectée.
      */
     public function storeMine(Request $request)
     {
@@ -43,14 +53,9 @@ class PermissionController extends Controller
             'reason' => ['nullable', 'string'],
         ]);
 
-        return $this->createPermission($employee, $data);
-    }
-
-    private function createPermission(Employee $employee, array $data)
-    {
         $end = $data['end_date'] ?? $data['start_date'];
 
-        $absence = $this->absenceService->submitPermission(
+        $absence = $this->absenceService->requestPermission(
             $employee,
             $data['start_date'],
             $end,

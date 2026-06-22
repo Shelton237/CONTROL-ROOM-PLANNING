@@ -37,7 +37,7 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    environment:
+    environment: &backend_env
       APP_NAME: "Thara Planning Control Room"
       APP_ENV: production
       APP_DEBUG: "false"
@@ -56,6 +56,21 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+    volumes:
+      - backend_storage:/var/www/html/storage
+
+  # Lance le scheduler Laravel (cron interne) : diffusion automatique des plannings par
+  # e-mail à J-1 du début de chaque semaine (voir routes/console.php). Même image que
+  # "backend", mais sans nginx/php-fpm/migration — juste la boucle de planification.
+  scheduler:
+    build:
+      context: ./backend
+      target: prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment: *backend_env
+    entrypoint: ["php", "artisan", "schedule:work"]
     volumes:
       - backend_storage:/var/www/html/storage
 

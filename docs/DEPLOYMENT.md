@@ -16,9 +16,11 @@ docker compose up --build
 
 ## Prod
 
-Stack : MySQL + backend (nginx + php-fpm dans une seule image) + frontend
-(Next.js en sortie "standalone") + un conteneur `gateway` (nginx) qui route
-`/planning` vers le frontend et `/planning/api` vers le backend.
+Stack : MySQL + backend (nginx + php-fpm dans une seule image) + `scheduler`
+(même image, lance `php artisan schedule:work` — nécessaire pour la diffusion
+automatique des e-mails à J-1 du début de semaine, voir routes/console.php) +
+frontend (Next.js en sortie "standalone") + un conteneur `gateway` (nginx) qui
+route `/planning` vers le frontend et `/planning/api` vers le backend.
 
 ### 1. Préparer les secrets
 

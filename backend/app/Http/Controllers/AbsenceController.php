@@ -52,6 +52,26 @@ class AbsenceController extends Controller
     }
 
     /**
+     * Le manager valide une demande de permission en attente (statut -> enregistree).
+     */
+    public function approve(Absence $absence)
+    {
+        abort_unless($absence->status === 'en_attente', 422, 'Cette demande n\'est plus en attente.');
+
+        return response()->json($this->absenceService->approve($absence));
+    }
+
+    /**
+     * Le manager rejette une demande de permission en attente (statut -> refusee).
+     */
+    public function reject(Absence $absence)
+    {
+        abort_unless($absence->status === 'en_attente', 422, 'Cette demande n\'est plus en attente.');
+
+        return response()->json($this->absenceService->reject($absence));
+    }
+
+    /**
      * Liste des absences/permissions de l'employé courant (scope agent).
      */
     public function mine(Request $request)

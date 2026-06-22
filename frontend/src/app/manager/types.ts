@@ -41,7 +41,7 @@ export type ScheduleResponse = {
 };
 
 export type AbsenceType = "absence" | "permission";
-export type AbsenceStatus = "enregistree" | "refusee";
+export type AbsenceStatus = "enregistree" | "refusee" | "en_attente";
 
 export type Absence = {
   id: number;

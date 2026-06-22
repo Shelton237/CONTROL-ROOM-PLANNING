@@ -13,9 +13,16 @@ function StatusTag({ status }: { status: Absence["status"] }) {
       </span>
     );
   }
+  if (status === "en_attente") {
+    return (
+      <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#fffbe6] text-[#9a7b00] border border-[#f0e0a0]">
+        En attente
+      </span>
+    );
+  }
   return (
     <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-abs-bg text-abs">
-      Refusée (&lt;48h)
+      Refusée
     </span>
   );
 }
@@ -73,10 +80,10 @@ export default function AgentRequestsPage() {
         reason,
       };
       const created = await api.post<Absence>("/me/permissions", payload);
-      if (created.status === "enregistree") {
+      if (created.status === "en_attente") {
         setResultMessage({
           ok: true,
-          text: "Demande enregistrée (délai de 48 h respecté). Elle apparaîtra dans le planning.",
+          text: "Demande envoyée, en attente de validation par le responsable. Elle n'impacte pas encore le planning.",
         });
       } else {
         setResultMessage({
@@ -103,9 +110,9 @@ export default function AgentRequestsPage() {
       </p>
 
       <div className="bg-[#fffbe6] border border-[#f0e0a0] rounded-md px-3 py-2.5 text-sm mb-4">
-        Une demande de permission doit être faite <b>au moins 48 h avant</b> la date de début. En
-        dessous de ce délai, elle sera <b>automatiquement refusée</b> et n&apos;impactera pas le
-        planning — mais elle restera visible dans l&apos;historique ci-dessous.
+        Une demande de permission doit être faite <b>au moins 48 h avant</b> la date de début, sinon
+        elle est <b>automatiquement refusée</b>. Sinon, elle reste <b>en attente</b> jusqu&apos;à ce que
+        le responsable la valide ou la rejette — elle n&apos;impacte pas le planning avant ça.
       </div>
 
       <form onSubmit={handleSubmit} className="flex gap-3 flex-wrap items-end mb-2">

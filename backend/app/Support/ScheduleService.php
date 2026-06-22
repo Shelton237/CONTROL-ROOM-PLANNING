@@ -39,20 +39,55 @@ class ScheduleService
             ->get()
             ->groupBy('employee_id');
 
+        $control = $roster->first(fn ($e) => $e->type === 'fixed_day' && ! ($e->cross ?? false));
+        $rotating = $roster->filter(fn ($e) => $e->type === 'rotation' && ! ($e->cross ?? false));
+
         $grid = [];
         foreach ($roster as $employee) {
-            $employeeOverrides = $overrides->get($employee->id, collect())->keyBy('day_index');
-            $employeeAbsences = $absencesByEmployee->get($employee->id, collect());
-
             $grid[$employee->id] = [];
-            foreach ($dates as $d => $iso) {
+        }
+
+        // jours où un employé de cette salle est en réalité prêté ET assigné ailleurs ce
+        // jour précis : il doit disparaître du planning (et de la couverture) de sa salle
+        // d'origine ce jour-là, pour ne pas afficher une couverture qui n'est pas réelle.
+        $awayDaysByEmployee = [];
+        foreach ($roster as $employee) {
+            $awayDaysByEmployee[$employee->id] = ($employee->cross ?? false)
+                ? []
+                : $this->awayDaysFor($employee, $room, $monIso);
+        }
+
+        foreach ($dates as $d => $iso) {
+            // un agent rotation absent (congé/maladie ou prêté ailleurs ce jour-là) ne doit
+            // pas faire perdre inutilement le J de son partenaire de binôme.
+            $awayThisDay = $rotating
+                ->filter(function ($employee) use ($d, $iso, $awayDaysByEmployee, $absencesByEmployee) {
+                    if (in_array($d, $awayDaysByEmployee[$employee->id], true)) {
+                        return true;
+                    }
+
+                    return $absencesByEmployee->get($employee->id, collect())
+                        ->contains(fn ($a) => $a->coversDate($iso));
+                })
+                ->pluck('id')
+                ->all();
+
+            $autoForDay = PlanningEngine::autoStatusesForRotation($rotating, $control, $iso, $monIso, $awayThisDay);
+
+            foreach ($roster as $employee) {
+                $employeeOverrides = $overrides->get($employee->id, collect())->keyBy('day_index');
+                $employeeAbsences = $absencesByEmployee->get($employee->id, collect());
+                $isAway = in_array($d, $awayDaysByEmployee[$employee->id], true);
+
                 $grid[$employee->id][$d] = $this->effectiveCell(
                     $employee,
                     $iso,
                     $monIso,
                     $d,
                     $employeeOverrides,
-                    $employeeAbsences
+                    $employeeAbsences,
+                    $autoForDay[$employee->id] ?? null,
+                    $isAway
                 );
             }
         }
@@ -68,7 +103,8 @@ class ScheduleService
     }
 
     /**
-     * Valeur effective d'une cellule : ABS > override manuel > statut auto (ou '' si prêté sans override).
+     * Valeur effective d'une cellule : ABS > prêté ailleurs ce jour-là (absent de cette
+     * salle) > override manuel > statut auto (ou '' si prêté sans override).
      *
      * @param  Collection  $overridesByDay  day_index => ScheduleOverride
      * @param  Collection  $absences  absences enregistrées de l'employé
@@ -79,16 +115,26 @@ class ScheduleService
         string $monIso,
         int $dayIndex,
         Collection $overridesByDay,
-        Collection $absences
+        Collection $absences,
+        ?string $precomputedAuto = null,
+        bool $isAway = false
     ): string {
         $isAbsent = $absences->contains(fn ($a) => $a->coversDate($iso));
         if ($isAbsent) {
             return 'ABS';
         }
 
+        if ($isAway) {
+            return '';
+        }
+
+        // Un override existe dès qu'une ligne schedule_overrides existe pour ce jour, même
+        // avec value="" (le manager a explicitement cliqué jusqu'à "vide" dans le cycle
+        // J→N→R→vide) : ça doit afficher une case vraiment vide, pas retomber sur le calcul
+        // automatique — sinon le cycle se bloque dès que la valeur auto du jour est "R".
         $override = $overridesByDay->get($dayIndex);
-        if ($override !== null && $override->value !== '' && $override->value !== null) {
-            return $override->value;
+        if ($override !== null) {
+            return $override->value ?? '';
         }
 
         if ($employee->cross ?? false) {
@@ -96,7 +142,39 @@ class ScheduleService
             return '';
         }
 
-        return PlanningEngine::autoStatus($employee, $iso, $monIso);
+        if ($employee->type === 'fixed_day') {
+            return PlanningEngine::autoStatus($employee, $iso, $monIso);
+        }
+
+        return $precomputedAuto ?? PlanningEngine::autoStatus($employee, $iso, $monIso);
+    }
+
+    /**
+     * Jours (0-6) où un employé de cette salle est effectivement assigné dans une AUTRE
+     * salle (prêt + valeur non vide assignée par le manager là-bas) — donc absent de sa
+     * salle d'origine ces jours précis.
+     *
+     * @return int[]
+     */
+    private function awayDaysFor(Employee $employee, Room $homeRoom, string $monIso): array
+    {
+        $loanRoomIds = RoomWeekLoan::query()
+            ->where('employee_id', $employee->id)
+            ->where('week_start', $monIso)
+            ->where('room_id', '!=', $homeRoom->id)
+            ->pluck('room_id');
+
+        if ($loanRoomIds->isEmpty()) {
+            return [];
+        }
+
+        return ScheduleOverride::query()
+            ->whereIn('room_id', $loanRoomIds)
+            ->where('week_start', $monIso)
+            ->where('employee_id', $employee->id)
+            ->where('value', '!=', '')
+            ->pluck('day_index')
+            ->all();
     }
 
     /**
@@ -126,6 +204,61 @@ class ScheduleService
             ->each(fn ($e) => $e->cross = true);
 
         return $base->concat($cross)->values();
+    }
+
+    /**
+     * Planning personnel d'un employé pour une semaine : pour chaque jour, la valeur
+     * effective ET la salle d'où elle provient. Un agent peut être prêté à une (ou
+     * plusieurs, selon les jours) autre salle que la sienne au cours de la même semaine :
+     * pour chaque jour, on utilise la salle de prêt si elle a une valeur assignée par le
+     * manager ce jour-là (non vide), sinon on retombe sur la salle d'origine.
+     *
+     * @return array{dates: string[], grid: array<int, string>, rooms: array<int, array{id:int,name:string}>}
+     */
+    public function meWeekSchedule(Employee $employee, string $weekStart): array
+    {
+        $monIso = PlanningEngine::mondayOf($weekStart);
+        $dates = PlanningEngine::weekDates($monIso);
+
+        $homeResult = $this->weekSchedule($employee->room, $monIso);
+        $homeValues = $homeResult['grid'][$employee->id] ?? array_fill(0, 7, '');
+
+        $loanRoomIds = RoomWeekLoan::query()
+            ->where('employee_id', $employee->id)
+            ->where('week_start', $monIso)
+            ->where('room_id', '!=', $employee->room_id)
+            ->pluck('room_id');
+
+        $loanResults = Room::query()
+            ->whereIn('id', $loanRoomIds)
+            ->get()
+            ->map(fn ($room) => ['room' => $room, 'result' => $this->weekSchedule($room, $monIso)]);
+
+        $grid = [];
+        $rooms = [];
+
+        foreach ($dates as $d => $iso) {
+            $value = $homeValues[$d] ?? '';
+            $roomInfo = ['id' => $employee->room_id, 'name' => $employee->room->name];
+
+            foreach ($loanResults as $loan) {
+                $loanValue = $loan['result']['grid'][$employee->id][$d] ?? '';
+                if ($loanValue !== '') {
+                    $value = $loanValue;
+                    $roomInfo = ['id' => $loan['room']->id, 'name' => $loan['room']->name];
+                    break;
+                }
+            }
+
+            $grid[$d] = $value;
+            $rooms[$d] = $roomInfo;
+        }
+
+        return [
+            'dates' => $dates,
+            'grid' => $grid,
+            'rooms' => $rooms,
+        ];
     }
 
     /**

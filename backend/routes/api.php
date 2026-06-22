@@ -37,6 +37,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/absences', [AbsenceController::class, 'index']);
         Route::post('/absences', [AbsenceController::class, 'store']);
         Route::delete('/absences/{absence}', [AbsenceController::class, 'destroy']);
+        Route::post('/absences/{absence}/approve', [AbsenceController::class, 'approve']);
+        Route::post('/absences/{absence}/reject', [AbsenceController::class, 'reject']);
 
         Route::post('/permissions', [PermissionController::class, 'store']);
 

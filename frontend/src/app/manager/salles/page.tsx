@@ -21,13 +21,19 @@ function RoomsTab() {
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<number, number>>({});
+  const [hasFixed, setHasFixed] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     listEmployees()
       .then((employees) => {
-        const next: Record<number, number> = {};
-        for (const e of employees) next[e.room_id] = (next[e.room_id] || 0) + 1;
-        setCounts(next);
+        const nextCounts: Record<number, number> = {};
+        const nextHasFixed: Record<number, boolean> = {};
+        for (const e of employees) {
+          nextCounts[e.room_id] = (nextCounts[e.room_id] || 0) + 1;
+          if (e.type === "fixed_day") nextHasFixed[e.room_id] = true;
+        }
+        setCounts(nextCounts);
+        setHasFixed(nextHasFixed);
       })
       .catch(() => {});
   }, [rooms]);
@@ -75,8 +81,9 @@ function RoomsTab() {
       <h2 className="text-lg font-semibold mb-1">Salles de contrôle</h2>
       <p className="text-sm text-muted mb-3">
         Format verrouillé : <b>service de quart 24/7</b>, rotation stricte Jour · Nuit · Repos pour les
-        agents tournants (3 binômes), plus l&apos;agent jour fixe (Sylvie). 2 Jour + 2 Nuit assurés en
-        permanence.
+        agents tournants (3 binômes), plus l&apos;agent jour fixe (Sylvie) qui rejoint un seul agent en
+        Jour le temps que ça coïncide. Jamais plus de 2 agents simultanément en Jour, ni plus de 2 en
+        Nuit. Chaque salle doit avoir un agent fixe.
       </p>
 
       {(error || loadError) && (
@@ -111,7 +118,14 @@ function RoomsTab() {
             ) : (
               rooms.map((r) => (
                 <tr key={r.id}>
-                  <td className="border border-line px-2 py-1.5 font-semibold">{r.name}</td>
+                  <td className="border border-line px-2 py-1.5 font-semibold">
+                    {r.name}
+                    {!hasFixed[r.id] && (
+                      <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-abs-bg text-red">
+                        Aucun agent fixe
+                      </span>
+                    )}
+                  </td>
                   <td className="border border-line px-2 py-1.5">Quart 24/7 – J · N · R</td>
                   <td className="border border-line px-2 py-1.5">{counts[r.id] || 0} employés</td>
                   <td className="border border-line px-2 py-1.5 text-right whitespace-nowrap">

@@ -106,6 +106,66 @@ class PlanningEngineTest extends TestCase
         $this->assertSame([0, 2, 0, 0, 0, 0, 0], $coverage['N']);
     }
 
+    public function test_three_binomes_plus_control_rotate_daily_with_exactly_two_on_j_and_n(): void
+    {
+        $control = new Employee([
+            'type' => 'fixed_day',
+            'day_spec' => PlanningEngine::defaultSpec(), // lun-sam 'on', dim 'off'
+            'alt_parity' => 0,
+        ]);
+
+        $employees = collect([
+            (new Employee(['type' => 'rotation', 'offset' => 0, 'binome' => 1]))->forceFill(['id' => 1]),
+            (new Employee(['type' => 'rotation', 'offset' => 0, 'binome' => 1]))->forceFill(['id' => 2]),
+            (new Employee(['type' => 'rotation', 'offset' => 1, 'binome' => 2]))->forceFill(['id' => 3]),
+            (new Employee(['type' => 'rotation', 'offset' => 1, 'binome' => 2]))->forceFill(['id' => 4]),
+            (new Employee(['type' => 'rotation', 'offset' => 2, 'binome' => 3]))->forceFill(['id' => 5]),
+            (new Employee(['type' => 'rotation', 'offset' => 2, 'binome' => 3]))->forceFill(['id' => 6]),
+        ]);
+
+        $previous = [];
+
+        // 9 semaines consécutives (3 cycles complets de 3 semaines) pour observer toutes
+        // les transitions, y compris d'une semaine à l'autre.
+        for ($d = 0; $d < 63; $d++) {
+            $iso = \Carbon\CarbonImmutable::createFromFormat('Y-m-d', '2026-01-05', 'UTC')->addDays($d)->format('Y-m-d');
+            $monIso = PlanningEngine::mondayOf($iso);
+
+            $statuses = PlanningEngine::autoStatusesForRotation($employees, $control, $iso, $monIso);
+            $controlStatus = PlanningEngine::autoStatus($control, $iso, $monIso);
+            $all = array_merge(array_values($statuses), [$controlStatus]);
+
+            $jCount = count(array_filter($all, fn ($s) => $s === 'J'));
+            $nCount = count(array_filter($all, fn ($s) => $s === 'N'));
+
+            // Avec 3 binômes, une phase couvre toujours exactement 1 binôme par jour :
+            // J et N restent à exactement 2 tous les jours, contrôle compris, sans exception.
+            $this->assertSame(2, $jCount, "J != 2 le $iso");
+            $this->assertSame(2, $nCount, "N != 2 le $iso");
+
+            // Aucun agent ne doit jamais passer directement de N (hier) à J (aujourd'hui).
+            foreach ($statuses as $employeeId => $status) {
+                if (isset($previous[$employeeId])) {
+                    $this->assertFalse(
+                        $previous[$employeeId] === 'N' && $status === 'J',
+                        "agent {$employeeId} passe de N à J directement le {$iso}"
+                    );
+                }
+                $previous[$employeeId] = $status;
+            }
+
+            // Les deux membres d'un même binôme ne sont jamais sur des statuts différents
+            // SAUF le binôme "scindé" sur sa semaine J (l'un en J, l'autre en R).
+            foreach ([[1, 2], [3, 4], [5, 6]] as [$idA, $idB]) {
+                $pair = [$statuses[$idA], $statuses[$idB]];
+                $this->assertTrue(
+                    $pair[0] === $pair[1] || (in_array('J', $pair, true) && in_array('R', $pair, true)),
+                    "binôme incohérent le $iso : ".implode(',', $pair)
+                );
+            }
+        }
+    }
+
     public function test_monday_of_returns_iso_monday_for_any_day_of_week(): void
     {
         $this->assertSame('2026-01-05', PlanningEngine::mondayOf('2026-01-05')); // lundi

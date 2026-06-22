@@ -143,6 +143,13 @@ function PlanningTab() {
         </div>
       )}
 
+      {schedule && !schedule.roster.some((e) => e.type === "fixed_day") && (
+        <div className="mb-4 text-sm text-red bg-abs-bg border border-red/30 rounded-md px-3 py-2">
+          Aucun agent fixe dans cette salle — chaque salle doit en avoir un (rôle de contrôle). Ajoute-le
+          dans Employés.
+        </div>
+      )}
+
       <div className="flex gap-3 items-end flex-wrap mb-3">
         <div>
           <label className="block text-xs font-semibold text-muted mb-1">Salle</label>

@@ -24,6 +24,8 @@ export type RosterEmployee = Employee & {
 
 export type CellValue = "J" | "N" | "R" | "" | "ABS";
 
+export type RoomInfo = { id: number; name: string };
+
 export type ScheduleResponse = {
   dates: string[]; // 7 dates ISO (lundi -> dimanche)
   roster: RosterEmployee[];
@@ -32,10 +34,13 @@ export type ScheduleResponse = {
     J: number[]; // 7 valeurs
     N: number[]; // 7 valeurs
   };
+  // Salle d'où provient chaque jour (salle d'origine, ou salle de renfort si prêté ce
+  // jour-là) — un agent peut être affecté à plusieurs salles différentes dans la semaine.
+  rooms: RoomInfo[];
 };
 
 export type AbsenceType = "absence" | "permission";
-export type AbsenceStatus = "enregistree" | "refusee";
+export type AbsenceStatus = "enregistree" | "refusee" | "en_attente";
 
 export type Absence = {
   id: number;

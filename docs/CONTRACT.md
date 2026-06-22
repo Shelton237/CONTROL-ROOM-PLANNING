@@ -17,10 +17,17 @@ Référence métier/UX : [`docs/legacy-prototype.html`](./legacy-prototype.html)
   - `rotation` : suit le cycle continu J→N→R, ancré sur `REF = 2026-01-01`. `offset` (0/1/2) déterminé par l'ordre de création au sein de la room, par binômes de 2 : `offset = floor(index/2) % 3`, `binome = offset + 1`.
   - `fixed_day` : `day_spec` = tableau de 7 valeurs (`on`/`off`/`alt`) indexées Lundi=0..Dimanche=6. `alt` = travaille seulement les semaines de parité `alt_parity` (0=paires, 1=impaires), selon le numéro de semaine ISO.
 - **Absence** : déclarée par le manager, effective immédiatement, statut toujours `enregistree`. Remplace la case du planning par `ABS`.
-- **Permission** : demandée par l'agent ou saisie par le manager. Règle des 48h : si `heures jusqu'au début < 48`, statut = `refusee` et **n'impacte pas le planning** (mais reste visible dans l'historique). Sinon statut = `enregistree`, équivaut à une absence pour le planning.
+- **Permission** : statut `enum('enregistree','refusee','en_attente')`.
+  - Saisie par le **manager** directement : règle des 48h appliquée immédiatement (pas d'étape d'approbation, le manager est déjà le validateur). Si `heures jusqu'au début < 48`, statut = `refusee` (n'impacte pas le planning, reste visible dans l'historique). Sinon statut = `enregistree`, équivaut à une absence pour le planning.
+  - Soumise par l'**agent** lui-même : la règle des 48h ne fait que refuser d'office si déjà trop tard (`refusee`, définitif). Sinon statut = `en_attente` — n'impacte pas encore le planning, tant que le manager n'a pas validé (`POST /absences/{id}/approve` → `enregistree`) ou rejeté (`POST /absences/{id}/reject` → `refusee`) explicitement.
 - **Cellule de planning** : valeur effective = `ABS` si absence enregistrée ce jour > sinon override manuel saisi par le manager > sinon statut auto calculé (cycle J/N/R ou jour fixe).
 - **Renfort inter-salles** : un agent d'une autre room peut être "prêté" pour une semaine donnée dans une room cible ; il n'a alors aucun statut auto, seulement les valeurs que le manager lui assigne case par case.
-- **Couverture** : par jour, nombre d'agents en `J` et nombre en `N` dans la room. Alerte si < 2.
+- **Couverture** : par jour, nombre d'agents en `J` et nombre en `N` dans la room. C'est un **plafond strict, jamais un minimum** : une room ne doit jamais avoir plus de 2 agents simultanément en J, ni plus de 2 en N (alerte si < 2 également, sous-effectif).
+- **Chaque room doit avoir un agent `fixed_day`** ("contrôle"). C'est une contrainte métier, pas encore imposée techniquement par une validation bloquante — à respecter lors de la saisie des employés.
+- **Format type d'une room "quart 24/7"** : 3 binômes rotation (6 agents) + 1 agent `fixed_day` ("contrôle"). Logique (`PlanningEngine::autoStatusesForRotation`), cycle **quotidien** (chaque agent suit individuellement J→N→R→J→N→R, jamais de bloc figé) :
+  - Avec exactement 3 binômes, les offsets 0/1/2 garantissent qu'à tout moment 1 seul binôme est sur chaque phase : 2J + 2N + 2R par construction, tous les jours.
+  - Le jour où le binôme naturellement en J coïncide avec le contrôle (qui est toujours J quand il travaille) : un seul des 2 membres de ce binôme garde son J (rejoint le contrôle, 2 en J au total), l'autre passe en R **ce jour précis seulement** (jamais de saut direct N→J, son jour précédent était déjà R). Lequel des 2 membres perd son J alterne tous les 3 jours (équité), sans désynchroniser leur cycle réel.
+  - Toute autre configuration (room sans agent fixe, ou nombre de binômes ≠ 3) : cycle indépendant historique par employé (`PlanningEngine::autoStatus`), sans garantie de plafond à 2 — réservé aux salles qui ne suivent pas encore ce format cible.
 
 ## Schéma de données (à affiner par l'agent backend, mais respecter ces entités/contraintes)
 
@@ -72,14 +79,18 @@ Manager (role=manager requis, middleware) :
 - `POST /rooms/{room}/schedule/loans` `{week, employee_id}` → ajoute un prêt
 - `DELETE /rooms/{room}/schedule/loans` `{week, employee_id}` → retire un prêt
 - `GET /absences` (toutes, triées par date desc) / `POST /absences` `{employee_id, start_date, end_date, reason}` (manager → toujours `enregistree`) / `DELETE /absences/{id}`
-- `POST /permissions` `{employee_id, start_date, end_date, reason}` → applique la règle des 48h, retourne le statut résultant
+- `POST /absences/{id}/approve` → valide une demande `en_attente` (statut → `enregistree`) ; 422 si elle n'est plus `en_attente`
+- `POST /absences/{id}/reject` → rejette une demande `en_attente` (statut → `refusee`) ; 422 si elle n'est plus `en_attente`
+- `POST /permissions` `{employee_id, start_date, end_date, reason}` → saisie manager, applique la règle des 48h immédiatement, retourne le statut résultant (`enregistree`/`refusee`)
 - `GET /rooms/{room}/diffusion?week=` → `[{employee_id, name, email, subject, body}]` (texte généré, même format que `emailBody()` du prototype)
-- `POST /rooms/{room}/diffusion/send` `{week}` → envoie réellement les e-mails (Laravel Mail), best-effort, retourne la liste des envois réussis/échoués
+- `POST /rooms/{room}/diffusion/send` `{week}` → envoie réellement les e-mails (Laravel Mail), best-effort, retourne `{sent: [...], failed: [...]}` (`DiffusionService::sendForRoom`, partagé avec l'envoi automatique)
+
+**Diffusion automatique** : commande `planning:send-weekly-diffusion` (planifiée tous les jours à 08h00, voir `routes/console.php` et le service `scheduler` de `docker-compose.prod.yaml`) — n'agit que si "demain" est un lundi (J-1 du début de semaine), et envoie alors la diffusion à toutes les salles pour la semaine qui commence le lendemain. `--force` + `--week=` pour rejouer manuellement.
 
 Agent (role=agent requis, scope = `employee_id` du user connecté, jamais un paramètre d'URL libre) :
 - `GET /me/schedule?week=` → même forme que ci-dessus mais limité à l'employé courant
 - `GET /me/absences`
-- `POST /me/permissions` `{start_date, end_date, reason}` → même règle des 48h
+- `POST /me/permissions` `{start_date, end_date, reason}` → règle des 48h : `refusee` direct si trop tard, sinon `en_attente` (validation/rejet manager requis avant d'impacter le planning)
 
 ## Découpage du travail (pour éviter les conflits de fichiers)
 

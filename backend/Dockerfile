@@ -5,7 +5,7 @@ FROM composer:2 AS composer-bin
 FROM php:8.2-fpm AS base
 WORKDIR /var/www/html
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libzip-dev unzip git libicu-dev \
+        libzip-dev unzip git libicu-dev libsqlite3-dev \
     && docker-php-ext-install pdo_mysql pdo_sqlite bcmath intl zip pcntl \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=composer-bin /usr/bin/composer /usr/bin/composer

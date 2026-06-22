@@ -73,9 +73,17 @@ export default function AgentMonthPage() {
           const me = schedule?.roster?.[0];
           const dates = schedule?.dates ?? [];
           const mine: CellValue[] = me ? schedule?.grid[String(me.id)] ?? [] : [];
+          const roomNames = Array.from(new Set((schedule?.rooms ?? []).map((r) => r.name)));
           return (
             <div key={weekStart} className="mb-5">
-              <h4 className="text-sm font-medium mb-1.5">Semaine du {fmtShort(weekStart)}</h4>
+              <h4 className="text-sm font-medium mb-1.5">
+                Semaine du {fmtShort(weekStart)}
+                {roomNames.length > 0 && (
+                  <span className={`ml-2 text-xs font-normal ${roomNames.length > 1 ? "text-red" : "text-muted"}`}>
+                    ({roomNames.join(", ")})
+                  </span>
+                )}
+              </h4>
               {error && (
                 <div className="text-sm text-red bg-abs-bg border border-red/30 rounded-md px-3 py-2">
                   {error}
