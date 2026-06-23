@@ -5,7 +5,7 @@ import { ManagerShell } from "../_components/ManagerShell";
 import { useDialog } from "../_components/DialogProvider";
 import { useRooms } from "../_components/useRooms";
 import { createEmployee, deleteEmployee, listEmployees, updateEmployee } from "../api-manager";
-import type { DaySpecValue, Employee, EmployeeType } from "../types";
+import type { DaySpecValue, Employee, EmployeeAccountResult, EmployeeType } from "../types";
 import { DSHORT } from "../date-utils";
 import { ApiError } from "@/lib/auth";
 
@@ -43,6 +43,9 @@ function EmployeesTab() {
   const [error, setError] = useState<string | null>(null);
   const [filterRoomId, setFilterRoomId] = useState<string>("");
   const [form, setForm] = useState(emptyForm());
+  const [accountNotice, setAccountNotice] = useState<{ email: string; account: EmployeeAccountResult } | null>(
+    null
+  );
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -100,6 +103,7 @@ function EmployeesTab() {
       return;
     }
     setError(null);
+    setAccountNotice(null);
     const payload = {
       room_id: Number(form.roomId),
       name: form.name.trim(),
@@ -112,7 +116,10 @@ function EmployeesTab() {
       if (form.id) {
         await updateEmployee(form.id, payload);
       } else {
-        await createEmployee(payload);
+        const created = await createEmployee(payload);
+        if (created.email) {
+          setAccountNotice({ email: created.email, account: created.account });
+        }
       }
       cancelEdit();
       await reload();
@@ -153,6 +160,37 @@ function EmployeesTab() {
       {error && (
         <div className="mb-4 text-sm text-red bg-abs-bg border border-red/30 rounded-md px-3 py-2">
           {error}
+        </div>
+      )}
+
+      {accountNotice && (
+        <div
+          className={`mb-4 text-sm rounded-md px-3 py-2 border ${
+            accountNotice.account.created
+              ? accountNotice.account.email_sent
+                ? "text-jour bg-jour-bg border-jour/30"
+                : "text-red bg-abs-bg border-red/30"
+              : "bg-[#fffbe6] border-[#f0e0a0]"
+          }`}
+        >
+          {accountNotice.account.created ? (
+            accountNotice.account.email_sent ? (
+              <>
+                Compte agent créé, identifiants envoyés par e-mail à <b>{accountNotice.email}</b>.
+              </>
+            ) : (
+              <>
+                Compte agent créé, mais l&apos;e-mail n&apos;a pas pu être envoyé. Mot de passe
+                provisoire à communiquer manuellement :{" "}
+                <b className="font-mono">{accountNotice.account.password}</b>
+              </>
+            )
+          ) : accountNotice.account.reason === "email_already_used" ? (
+            <>
+              Aucun compte créé : l&apos;e-mail <b>{accountNotice.email}</b> est déjà utilisé par un
+              autre compte.
+            </>
+          ) : null}
         </div>
       )}
 

@@ -23,6 +23,17 @@ export type Employee = {
   alt_parity: 0 | 1 | null;
 };
 
+// Renvoyé uniquement par POST /employees : résultat de la création du
+// compte de connexion agent (best-effort, voir CONTRACT.md).
+export type EmployeeAccountResult = {
+  created: boolean;
+  email_sent: boolean;
+  password: string | null;
+  reason: "no_email" | "email_already_used" | null;
+};
+
+export type EmployeeWithAccount = Employee & { account: EmployeeAccountResult };
+
 // Roster renvoyé par /rooms/{room}/schedule : un employé + indicateur de prêt
 export type RosterEmployee = Employee & {
   cross: boolean;

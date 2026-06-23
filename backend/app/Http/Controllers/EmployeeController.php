@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
+use App\Support\EmployeeAccountService;
 use App\Support\ScheduleService;
 use Illuminate\Http\Request;
 
 class EmployeeController extends Controller
 {
-    public function __construct(private ScheduleService $scheduleService)
-    {
+    public function __construct(
+        private ScheduleService $scheduleService,
+        private EmployeeAccountService $employeeAccountService,
+    ) {
     }
 
     public function index(Request $request)
@@ -34,7 +37,9 @@ class EmployeeController extends Controller
             $employee->refresh();
         }
 
-        return response()->json($employee, 201);
+        $account = $this->employeeAccountService->createAccountAndNotify($employee);
+
+        return response()->json([...$employee->toArray(), 'account' => $account], 201);
     }
 
     public function update(Request $request, Employee $employee)

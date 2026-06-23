@@ -10,6 +10,7 @@ import type {
   DiffusionSendResponse,
   Employee,
   EmployeeType,
+  EmployeeWithAccount,
   DaySpecValue,
   Room,
   ScheduleResponse,
@@ -45,7 +46,7 @@ export type EmployeePayload = {
 };
 
 export function createEmployee(payload: EmployeePayload) {
-  return api.post<Employee>("/employees", payload);
+  return api.post<EmployeeWithAccount>("/employees", payload);
 }
 export function updateEmployee(id: number, payload: Partial<EmployeePayload>) {
   return api.patch<Employee>(`/employees/${id}`, payload);
