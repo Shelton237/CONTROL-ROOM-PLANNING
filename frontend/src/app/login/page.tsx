@@ -41,6 +41,7 @@ export default function LoginPage() {
             height={70}
             className="h-14 w-auto mx-auto"
             priority
+            unoptimized
           />
           <p className="text-sm text-muted mt-1">Planning Control Room</p>
         </div>

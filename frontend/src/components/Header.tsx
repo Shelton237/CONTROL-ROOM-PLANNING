@@ -16,7 +16,15 @@ export function Header() {
   return (
     <header className="bg-charcoal text-white px-5 py-3 flex items-center gap-4 border-b-4 border-red flex-wrap">
       <div className="bg-white rounded-md px-2 py-1 flex items-center">
-        <Image src="/thara-logo.png" alt="Thara Services" width={120} height={40} className="h-8 w-auto" priority />
+        <Image
+          src="/thara-logo.png"
+          alt="Thara Services"
+          width={120}
+          height={40}
+          className="h-8 w-auto"
+          priority
+          unoptimized
+        />
       </div>
       <div className="text-sm text-white/80">Planning Control Room</div>
       {user && (
