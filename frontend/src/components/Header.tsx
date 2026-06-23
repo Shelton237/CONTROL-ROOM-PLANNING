@@ -17,7 +17,7 @@ export function Header() {
     <header className="bg-charcoal text-white px-5 py-3 flex items-center gap-4 border-b-4 border-red flex-wrap">
       <div className="bg-white rounded-md px-2 py-1 flex items-center">
         <Image
-          src="/thara-logo.png"
+          src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/thara-logo.png`}
           alt="Thara Services"
           width={120}
           height={40}

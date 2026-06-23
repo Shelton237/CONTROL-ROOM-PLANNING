@@ -35,7 +35,7 @@ export default function LoginPage() {
       >
         <div className="mb-6 text-center">
           <Image
-            src="/thara-logo.png"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/thara-logo.png`}
             alt="Thara Services"
             width={220}
             height={70}
