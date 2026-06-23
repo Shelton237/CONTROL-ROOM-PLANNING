@@ -79,7 +79,11 @@ services:
       context: ./frontend
       target: prod
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://crm.thara-services.mg/planning/api}
+        # Chemin relatif (pas d'hôte/scheme en dur) : résolu par le navigateur
+        # par rapport à l'origine réelle de la page, quel que soit le domaine/
+        # IP/port/http(s) utilisé pour y accéder — évite les soucis récurrents
+        # d'URL d'API figée sur le mauvais hôte.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/planning/api}
         NEXT_BASE_PATH: /planning
     restart: unless-stopped
     depends_on:
