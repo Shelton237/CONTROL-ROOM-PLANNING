@@ -27,15 +27,21 @@ export default function LoginPage() {
     }
   }
 
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
   return (
-    <main className="flex-1 flex items-center justify-center bg-background px-4">
+    <main
+      className="flex-1 flex items-center justify-center px-4 relative bg-cover bg-center"
+      style={{ backgroundImage: `url(${basePath}/login-bg.jpg)` }}
+    >
+      <div className="absolute inset-0 bg-charcoal/70" />
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm bg-panel border border-line rounded-lg p-6 shadow-sm"
+        className="relative z-10 w-full max-w-sm bg-panel border border-line rounded-lg p-6 shadow-xl"
       >
         <div className="mb-6 text-center">
           <Image
-            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/thara-logo.png`}
+            src={`${basePath}/thara-logo.png`}
             alt="Thara Services"
             width={220}
             height={70}
