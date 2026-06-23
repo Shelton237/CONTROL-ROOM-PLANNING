@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Mail\WelcomeAgentMail;
 use App\Models\Employee;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Throwable;
@@ -46,6 +47,11 @@ class EmployeeAccountService
             $emailSent = true;
         } catch (Throwable $e) {
             // best-effort : le compte existe même si l'e-mail échoue (ex. SMTP indisponible).
+            Log::warning('Échec envoi e-mail de bienvenue agent', [
+                'employee_id' => $employee->id,
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return ['created' => true, 'email_sent' => $emailSent, 'password' => $password, 'reason' => null];
