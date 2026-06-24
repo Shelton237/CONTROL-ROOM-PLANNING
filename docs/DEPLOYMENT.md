@@ -110,25 +110,54 @@ Résultat dans `frontend/out/` : à envoyer tel quel (FTP/SSH) dans le
 a son propre `index.html` (`trailingSlash` activé en mode export) : un
 Apache standard la sert nativement, aucune règle de réécriture nécessaire.
 
-### Backend — Laravel classique
+### Backend — Laravel classique (FTP uniquement, sans terminal SSH)
 
-1. Déposer le code de `backend/` sur le serveur (git clone ou zip), **sauf**
-   `vendor/` et `.env`.
-2. `composer install --no-dev --optimize-autoloader` (SSH, ou l'outil
-   Composer du panneau d'hébergement).
-3. Pointer le document root du domaine/sous-domaine vers `backend/public`
-   (réglage "Document Root" du panneau). Si impossible à changer, copier
-   `public/index.php` et `public/.htaccess` à la racine réelle et adapter les
-   chemins `require` qu'ils contiennent vers `../backend/...`.
-4. Copier `.env.example` en `.env`, compléter (`APP_KEY`, `DB_*`, `MAIL_*`,
-   `APP_URL`), puis `php artisan migrate --force`.
-5. **Cron** (remplace le service `scheduler` du Docker) — dans l'outil "Tâches
-   Cron" du panneau, toutes les minutes :
+**0. Vérifier d'abord si cPanel propose un "Terminal"** (icône dans le
+panneau) — certains hébergeurs sans SSH classique l'activent quand même ;
+si c'est le cas, ça permet de lancer `composer`/`artisan` directement et de
+sauter les contournements ci-dessous (étapes 2 et 4).
+
+1. **Construire `vendor/` en local** (pas de composer sur le serveur) :
+   ```
+   cd backend && composer install --no-dev --optimize-autoloader
+   ```
+   Puis envoyer **tout** `backend/` (avec `vendor/` cette fois) par FTP,
+   sauf `.env` et `node_modules/`.
+2. Dans cPanel, pointer le **Document Root** du domaine/sous-domaine de
+   l'API vers `backend/public`. Si ce réglage n'est pas disponible, copier
+   `public/index.php` et `public/.htaccess` à la racine réelle du site et
+   adapter les chemins `require` qu'ils contiennent vers `../backend/...`.
+3. Créer `.env` (copie de `.env.example`) **directement sur le serveur**
+   via l'éditeur de fichiers cPanel (pas en FTP en clair si évitable) :
+   compléter `APP_KEY` (le générer en local avec
+   `php artisan key:generate --show`, copier juste la valeur), `DB_*`,
+   `MAIL_*`, `APP_URL`.
+4. **Migrations sans terminal** : dans ce même `.env`, définir
+   `DEPLOY_MIGRATE_TOKEN` avec une valeur longue et aléatoire, puis visiter
+   une fois dans le navigateur :
+   ```
+   https://ton-domaine/deploy-migrate.php?token=LA_VALEUR_CHOISIE
+   ```
+   Ce script (`backend/public/deploy-migrate.php`) joue les migrations et
+   affiche le résultat. **Supprimer ce fichier par FTP immédiatement après**
+   (sécurité — sans lui, n'importe qui connaissant le token pourrait
+   rejouer les migrations).
+5. **Cron** (remplace le service `scheduler` du Docker) — dans "Tâches Cron"
+   du panneau (généralement disponible même sans terminal SSH), toutes les
+   minutes :
    ```
    * * * * * php /chemin/vers/backend/artisan schedule:run >> /dev/null 2>&1
    ```
    C'est ce qui déclenche `planning:send-weekly-diffusion` à J-1 de chaque
-   semaine (voir `routes/console.php`).
+   semaine (voir `routes/console.php`). Le chemin exact de `php` (souvent
+   une version précise comme `/opt/cpanel/ea-php82/root/usr/bin/php`) et le
+   chemin du projet sont à adapter — l'outil "Tâches Cron" de cPanel les
+   suggère généralement.
+
+   Si même les Tâches Cron sont indisponibles : un service externe gratuit
+   (ex. cron-job.org) peut appeler `https://ton-domaine/api/...` à
+   intervalle régulier pour déclencher un endpoint équivalent — solution de
+   repli, à ne mettre en place que si la case précédente est impossible.
 
 ### CORS
 
