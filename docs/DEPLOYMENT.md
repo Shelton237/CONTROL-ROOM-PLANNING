@@ -81,3 +81,58 @@ docker compose -f docker-compose.prod.yaml up -d --build
 
 Rejoue les migrations et reconstruit les images si le code a changé ; les
 données MySQL persistent dans le volume nommé `mysql_data`.
+
+## Hébergement mutualisé (sans Docker, sans Node)
+
+Pas de Docker sur un mutualisé classique (cPanel). Le backend Laravel tourne
+nativement sur PHP + MySQL ; le frontend est exporté en **HTML/CSS/JS
+statiques** (`output: "export"`) — possible ici sans changement de code
+puisque l'app est déjà 100% client-side (aucune route API Next, aucun
+middleware).
+
+### Frontend — export statique
+
+```
+NEXT_OUTPUT_MODE=export NEXT_PUBLIC_API_URL=/api npm run build:export
+```
+
+(PowerShell : `$env:NEXT_OUTPUT_MODE='export'; $env:NEXT_PUBLIC_API_URL='/api'; npm run build`)
+
+- `NEXT_PUBLIC_API_URL` : chemin/URL vu depuis le navigateur pour joindre
+  l'API Laravel. Relatif (`/api`) si front et back partagent le même domaine
+  racine ; URL absolue (`https://api.domaine.mg/api`) sinon.
+- `NEXT_BASE_PATH` : à fixer (ex. `/planning`) seulement si l'app doit vivre
+  sous un sous-dossier d'un site existant plutôt qu'à la racine d'un
+  (sous-)domaine dédié.
+
+Résultat dans `frontend/out/` : à envoyer tel quel (FTP/SSH) dans le
+`public_html` (ou sous-dossier) du domaine/sous-domaine cPanel. Chaque route
+a son propre `index.html` (`trailingSlash` activé en mode export) : un
+Apache standard la sert nativement, aucune règle de réécriture nécessaire.
+
+### Backend — Laravel classique
+
+1. Déposer le code de `backend/` sur le serveur (git clone ou zip), **sauf**
+   `vendor/` et `.env`.
+2. `composer install --no-dev --optimize-autoloader` (SSH, ou l'outil
+   Composer du panneau d'hébergement).
+3. Pointer le document root du domaine/sous-domaine vers `backend/public`
+   (réglage "Document Root" du panneau). Si impossible à changer, copier
+   `public/index.php` et `public/.htaccess` à la racine réelle et adapter les
+   chemins `require` qu'ils contiennent vers `../backend/...`.
+4. Copier `.env.example` en `.env`, compléter (`APP_KEY`, `DB_*`, `MAIL_*`,
+   `APP_URL`), puis `php artisan migrate --force`.
+5. **Cron** (remplace le service `scheduler` du Docker) — dans l'outil "Tâches
+   Cron" du panneau, toutes les minutes :
+   ```
+   * * * * * php /chemin/vers/backend/artisan schedule:run >> /dev/null 2>&1
+   ```
+   C'est ce qui déclenche `planning:send-weekly-diffusion` à J-1 de chaque
+   semaine (voir `routes/console.php`).
+
+### CORS
+
+Si le frontend et l'API ne partagent pas le même domaine racine (origines
+différentes), vérifier que `config/cors.php` (ou les valeurs par défaut du
+framework si ce fichier n'existe pas) autorise l'origine du frontend pour les
+routes `api/*`.
